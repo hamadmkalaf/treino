@@ -119,6 +119,7 @@ const ALIASES: Record<string, string> = {
   'bench dip': 'dip-bench',
   'push up': 'pushup',
   'incline dumbbell bench press': 'incline-db',
+  'dumbbell incline bench press': 'incline-db',
   'incline bench press': 'incline-bb',
   'incline barbell bench press': 'incline-bb',
   'decline bench press': 'decline-bb',

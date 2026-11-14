@@ -4,6 +4,7 @@ import { Btn, Card, Chip, dateFmt, Page, SectionTitle, Stepper } from '../compon
 import { EQUIPMENT } from '../data/muscles'
 import { db, DEFAULT_TARGETS, setSetting, TABLES, uid } from '../db/db'
 import { useActiveGym, useExercises, useSetting } from '../db/hooks'
+import { loadReference } from '../db/reference'
 import { download, exportBackup, importBackup } from '../lib/backup'
 import { buildRoutines, buildSessions, matchExercise, parseFitbod, validateRoutineFile, type FitbodRow } from '../lib/fitbodImport'
 import type { Exercise } from '../types'
@@ -283,6 +284,40 @@ function RoutineImport() {
   )
 }
 
+function ReferenceLoad() {
+  const { list } = useExercises()
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const run = async () => {
+    setBusy(true)
+    try {
+      const r = await loadReference(list)
+      setMsg(
+        `${r.routines} rotinas adicionadas${r.skipped ? ` (${r.skipped} já existiam)` : ''} e ${r.sessions} treinos (${r.sets} séries) no histórico.`,
+      )
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Não foi possível carregar.')
+    }
+    setBusy(false)
+  }
+
+  return (
+    <>
+      <SectionTitle>Treinos de referência</SectionTitle>
+      <Card className="space-y-3">
+        <p className="text-sm text-mut">
+          Carrega as rotinas e o histórico transcritos das capturas do Fitbod (set–nov/2026). Nada é apagado; repetir não duplica.
+        </p>
+        <Btn className="w-full" disabled={busy} onClick={() => void run()}>
+          Carregar rotinas e histórico
+        </Btn>
+        {msg && <p className="text-sm">{msg}</p>}
+      </Card>
+    </>
+  )
+}
+
 function Backup() {
   const input = useRef<HTMLInputElement>(null)
   const [last, setLast] = useSetting('lastBackup', '')
@@ -389,6 +424,7 @@ export default function Settings() {
       </Card>
 
       <Gyms />
+      <ReferenceLoad />
       <FitbodImport />
       <RoutineImport />
       <Backup />

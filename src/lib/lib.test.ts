@@ -9,6 +9,8 @@ import { rankSubstitutes, similarity } from './substitution'
 import { buildRoutines, buildSessions, matchExercise, parseCsv, parseFitbod, validateRoutineFile } from './fitbodImport'
 import { exportBackup, importBackup } from './backup'
 import { db, DEFAULT_TARGETS, ensureSeed } from '../db/db'
+import routinesRef from '../../dados-importacao/rotinas-referencia.json'
+import historyRef from '../../dados-importacao/historico-referencia.csv?raw'
 
 const byId: Record<string, Exercise> = Object.fromEntries(SEED_EXERCISES.map((e) => [e.id, e]))
 const set = (weight: number, reps: number, extra: Partial<SetEntry> = {}): SetEntry => ({
@@ -198,5 +200,14 @@ describe('importação de rotinas', () => {
     expect(r.items[1].targets.high).toMatchObject({ sets: 3, repMin: 10, repMax: 12 })
     expect(r.items[1].targets.low).toMatchObject({ sets: 3, repMin: 8, repMax: 10 })
     expect(() => validateRoutineFile({ app: 'x' })).toThrow()
+  })
+  it('reconhece todos os exercícios dos dados de referência', () => {
+    const names = new Set([
+      ...validateRoutineFile(routinesRef).routines.flatMap((r) => r.items.map((i) => i.name)),
+      ...parseFitbod(historyRef).map((r) => r.name),
+    ])
+    const unmatched = [...names].filter((n) => !matchExercise(n, SEED_EXERCISES))
+    expect(unmatched).toEqual([])
+    expect(matchExercise('Dumbbell Incline Bench Press', SEED_EXERCISES)).toBe('incline-db')
   })
 })

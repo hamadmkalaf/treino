@@ -10,6 +10,7 @@ export const shoulders = [
   x('ohp-machine', 'Desenvolvimento na máquina', 'Machine Shoulder Press', 'machine', 'vpush', 'M', 'delt-ant', PRESS, 'ohp'),
   x('ohp-plate', 'Desenvolvimento articulado', 'Plate-Loaded Shoulder Press', 'plate', 'vpush', 'M', 'delt-ant', PRESS, 'ohp'),
   x('ohp-smith', 'Desenvolvimento no Smith', 'Smith Machine Shoulder Press', 'smith', 'vpush', 'M', 'delt-ant', PRESS, 'ohp'),
+  x('ohp-cable', 'Desenvolvimento na polia', 'Cable Shoulder Press', 'cable', 'vpush', 'L', 'delt-ant', PRESS, 'ohp'),
   x('arnold-press', 'Desenvolvimento Arnold', 'Arnold Press', 'dumbbell', 'vpush', 'L', 'delt-ant delt-lat', 'pec-clav tri-lat tri-med trap-up', 'ohp'),
   x('landmine-press', 'Desenvolvimento landmine', 'Landmine Press', 'landmine', 'vpush', 'M', 'delt-ant pec-clav', 'tri-lat tri-med serratus', 'ohp', true),
   x('ohp-kb', 'Desenvolvimento com kettlebell', 'Kettlebell Overhead Press', 'kettlebell', 'vpush', 'M', 'delt-ant', PRESS, 'ohp', true),
