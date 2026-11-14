@@ -1,4 +1,4 @@
-import type { Exercise, Session, SessionExercise } from '../types'
+import type { Exercise, Mode, ModeTarget, Routine, Session, SessionExercise } from '../types'
 import { dayKey } from './volume'
 
 export interface FitbodRow {
@@ -182,6 +182,20 @@ const ALIASES: Record<string, string> = {
   'upright row': 'upright-row-bb',
   'goblet squat': 'squat-goblet',
   'kettlebell swing': 'kb-swing',
+  'dumbbell back fly': 'reverse-fly-incline',
+  'incline dumbbell row': 'row-db-incline',
+  'hammerstrength iso row': 'row-plate',
+  'hammerstrength low row': 'row-plate',
+  'hammerstrength high row': 'row-plate-high',
+  'standing machine calf press': 'calf-standing',
+  'behind the back cable biceps curl': 'curl-cable',
+  'cable shoulder external rotation': 'ext-rot-cable',
+  'cable shoulder external rotation at 90': 'ext-rot-cable',
+  'cable shoulder internal rotation': 'int-rot-cable',
+  'cable shoulder internal rotation at 90': 'int-rot-cable',
+  'dumbbell stiff legged deadlift': 'stiff',
+  'cable wood chop': 'woodchop',
+  'cable one arm triceps side extension': 'pushdown-uni',
 }
 
 /** tenta casar um nome do Fitbod com um exercício da biblioteca; retorna o id ou undefined */
@@ -243,4 +257,47 @@ export function buildSessions(rows: FitbodRow[], mapping: Record<string, string>
     })
   }
   return sessions
+}
+
+export interface RoutineFile {
+  app: 'treino-rotinas'
+  routines: { name: string; items: { name: string; sets: number | null; reps: number | null }[] }[]
+}
+
+export function validateRoutineFile(data: unknown): RoutineFile {
+  const f = data as RoutineFile
+  if (!f || f.app !== 'treino-rotinas' || !Array.isArray(f.routines)) throw new Error('Arquivo de rotinas inválido.')
+  return f
+}
+
+/**
+ * Converte rotinas de referência em Routine. mapping: nome do exercício → id no app.
+ * Séries/repetições ausentes usam os padrões do app; a faixa de reps fica em torno do valor planejado.
+ */
+export function buildRoutines(
+  file: RoutineFile,
+  mapping: Record<string, string>,
+  makeId: () => string,
+  firstOrder: number,
+  defaults: Record<Mode, ModeTarget>,
+): Routine[] {
+  return file.routines.map((r, i) => ({
+    id: makeId(),
+    name: r.name,
+    order: firstOrder + i,
+    items: r.items
+      .filter((it) => mapping[it.name])
+      .map((it) => {
+        const target = (mode: Mode): ModeTarget => {
+          const d = defaults[mode]
+          return {
+            ...d,
+            sets: it.sets ?? d.sets,
+            repMin: it.reps ? Math.max(1, it.reps - (mode === 'low' ? 2 : 0)) : d.repMin,
+            repMax: it.reps ? it.reps + (mode === 'low' ? 0 : 2) : d.repMax,
+          }
+        }
+        return { uid: makeId(), exerciseId: mapping[it.name], targets: { low: target('low'), high: target('high') }, restSec: 90 }
+      }),
+  }))
 }

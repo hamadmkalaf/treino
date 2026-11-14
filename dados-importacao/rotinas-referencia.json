@@ -1,0 +1,340 @@
+{
+  "app": "treino-rotinas",
+  "routines": [
+    {
+      "name": "Cat Pull 1.1",
+      "items": [
+        {
+          "name": "Lat Pulldown",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Hammer Curls",
+          "sets": 3,
+          "reps": 10
+        },
+        {
+          "name": "Cable Row",
+          "sets": 2,
+          "reps": 15
+        },
+        {
+          "name": "Dumbbell Upright Row",
+          "sets": 3,
+          "reps": 10
+        },
+        {
+          "name": "Concentration Curl",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Behind the Back Cable Bicep Curl",
+          "sets": 3,
+          "reps": 15
+        }
+      ]
+    },
+    {
+      "name": "Cat Push 1.1",
+      "items": [
+        {
+          "name": "Barbell Bench Press",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Cable Rope Tricep Extension",
+          "sets": 3,
+          "reps": 10
+        },
+        {
+          "name": "Dumbbell Lateral Raise",
+          "sets": 4,
+          "reps": 10
+        },
+        {
+          "name": "Cable Crossover Fly",
+          "sets": 2,
+          "reps": 8
+        },
+        {
+          "name": "Cable Rope Overhead Triceps Extension",
+          "sets": null,
+          "reps": null
+        }
+      ]
+    },
+    {
+      "name": "Cat Leg 1.1",
+      "items": [
+        {
+          "name": "Single Leg Leg Extension",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Seated Leg Curl",
+          "sets": 4,
+          "reps": 12
+        },
+        {
+          "name": "Back Squat",
+          "sets": 4,
+          "reps": 10
+        },
+        {
+          "name": "Standing Barbell Calf Raise",
+          "sets": 3,
+          "reps": 12
+        },
+        {
+          "name": "Dumbbell Stiff Legged Deadlift",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Dumbbell Romanian Deadlift",
+          "sets": 2,
+          "reps": 10
+        }
+      ]
+    },
+    {
+      "name": "Raw Push 1.1",
+      "items": [
+        {
+          "name": "Machine Bench Press",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Assisted Dip",
+          "sets": 4,
+          "reps": 8
+        },
+        {
+          "name": "Machine Fly",
+          "sets": 4,
+          "reps": 15
+        },
+        {
+          "name": "Cable Rope Overhead Triceps Extension",
+          "sets": 4,
+          "reps": 12
+        }
+      ]
+    },
+    {
+      "name": "Raw Pull 1",
+      "items": [
+        {
+          "name": "Lat Pulldown",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Hammerstrength Iso Row",
+          "sets": 3,
+          "reps": 10
+        },
+        {
+          "name": "Machine Bicep Curl",
+          "sets": 3,
+          "reps": 15
+        },
+        {
+          "name": "Hammer Curls",
+          "sets": 3,
+          "reps": 6
+        },
+        {
+          "name": "Hammerstrength High Row",
+          "sets": 4,
+          "reps": null
+        }
+      ]
+    },
+    {
+      "name": "Raw Leg 1",
+      "items": [
+        {
+          "name": "Single Leg Leg Extension",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Seated Leg Curl",
+          "sets": 4,
+          "reps": 6
+        },
+        {
+          "name": "Machine Hip Abductor",
+          "sets": 3,
+          "reps": 10
+        },
+        {
+          "name": "Standing Machine Calf Press",
+          "sets": 3,
+          "reps": 15
+        },
+        {
+          "name": "Leg Press",
+          "sets": 4,
+          "reps": 10
+        },
+        {
+          "name": "Machine Hip Thrust",
+          "sets": 2,
+          "reps": null
+        },
+        {
+          "name": "Back Extensions",
+          "sets": 4,
+          "reps": 6
+        }
+      ]
+    },
+    {
+      "name": "Shoulder 1.1",
+      "items": [
+        {
+          "name": "Dumbbell Shoulder Press",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Dumbbell Back Fly",
+          "sets": 3,
+          "reps": 11
+        },
+        {
+          "name": "Dumbbell Lateral Raise",
+          "sets": 3,
+          "reps": 8
+        },
+        {
+          "name": "Cable Shoulder Internal Rotation at 90°",
+          "sets": 3,
+          "reps": 15
+        },
+        {
+          "name": "Cable Shoulder External Rotation at 90°",
+          "sets": null,
+          "reps": null
+        }
+      ]
+    },
+    {
+      "name": "Upper Body 2",
+      "items": [
+        {
+          "name": "Dumbbell Back Fly",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Dumbbell Incline Bench Press",
+          "sets": 4,
+          "reps": 8
+        },
+        {
+          "name": "Incline Dumbbell Curl",
+          "sets": 3,
+          "reps": 15
+        },
+        {
+          "name": "Incline Dumbbell Row",
+          "sets": 3,
+          "reps": 15
+        },
+        {
+          "name": "Dumbbell Shoulder Press",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Cable Rope Overhead Triceps Extension",
+          "sets": 4,
+          "reps": 8
+        },
+        {
+          "name": "Hammer Curls",
+          "sets": 4,
+          "reps": 8
+        }
+      ]
+    },
+    {
+      "name": "Abs",
+      "items": [
+        {
+          "name": "Standing Cable Core Twist",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Pallof Press",
+          "sets": 3,
+          "reps": 7
+        },
+        {
+          "name": "Crunches",
+          "sets": 5,
+          "reps": 17
+        },
+        {
+          "name": "Cable Wood Chop",
+          "sets": 3,
+          "reps": 12
+        }
+      ]
+    },
+    {
+      "name": "Rec pós viagem",
+      "items": [
+        {
+          "name": "Dumbbell Back Fly",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Dumbbell Incline Bench Press",
+          "sets": 4,
+          "reps": 8
+        },
+        {
+          "name": "Incline Dumbbell Curl",
+          "sets": 3,
+          "reps": 15
+        },
+        {
+          "name": "Incline Dumbbell Row",
+          "sets": 3,
+          "reps": 15
+        },
+        {
+          "name": "Dumbbell Shoulder Press",
+          "sets": 4,
+          "reps": null
+        },
+        {
+          "name": "Cable Shoulder External Rotation",
+          "sets": 3,
+          "reps": 10
+        },
+        {
+          "name": "Cable Shoulder External Rotation at 90°",
+          "sets": 3,
+          "reps": 10
+        },
+        {
+          "name": "Cable Face Pull",
+          "sets": 3,
+          "reps": 10
+        }
+      ]
+    }
+  ]
+}

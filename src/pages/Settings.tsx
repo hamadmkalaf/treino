@@ -2,10 +2,10 @@ import { useRef, useState } from 'react'
 import { ExercisePicker } from '../components/exercise'
 import { Btn, Card, Chip, dateFmt, Page, SectionTitle, Stepper } from '../components/ui'
 import { EQUIPMENT } from '../data/muscles'
-import { db, setSetting, TABLES, uid } from '../db/db'
+import { db, DEFAULT_TARGETS, setSetting, TABLES, uid } from '../db/db'
 import { useActiveGym, useExercises, useSetting } from '../db/hooks'
 import { download, exportBackup, importBackup } from '../lib/backup'
-import { buildSessions, matchExercise, parseFitbod, type FitbodRow } from '../lib/fitbodImport'
+import { buildRoutines, buildSessions, matchExercise, parseFitbod, validateRoutineFile, type FitbodRow } from '../lib/fitbodImport'
 import type { Exercise } from '../types'
 
 function Gyms() {
@@ -215,6 +215,74 @@ function FitbodImport() {
   )
 }
 
+function RoutineImport() {
+  const { list } = useExercises()
+  const input = useRef<HTMLInputElement>(null)
+  const [msg, setMsg] = useState('')
+
+  const onFile = async (file: File) => {
+    try {
+      const data = validateRoutineFile(JSON.parse(await file.text()))
+      const mapping: Record<string, string> = {}
+      const created: Exercise[] = []
+      for (const r of data.routines)
+        for (const it of r.items) {
+          if (mapping[it.name]) continue
+          const id = matchExercise(it.name, list)
+          if (id) mapping[it.name] = id
+          else {
+            // sem correspondência: cria exercício personalizado (músculos podem ser definidos depois)
+            const ex: Exercise = { id: `c-${uid()}`, namePt: it.name, nameEn: it.name, equipment: 'machine', pattern: 'curl', tension: 'mid', targets: [], isCustom: true }
+            created.push(ex)
+            mapping[it.name] = ex.id
+          }
+        }
+      let added = 0
+      await db.transaction('rw', db.routines, db.exercises, async () => {
+        const existing = await db.routines.toArray()
+        const names = new Set(existing.map((r) => r.name.toLowerCase()))
+        const fresh = buildRoutines(data, mapping, uid, existing.length, DEFAULT_TARGETS).filter((r) => !names.has(r.name.toLowerCase()))
+        const used = new Set(fresh.flatMap((r) => r.items.map((i) => i.exerciseId)))
+        await db.exercises.bulkPut(created.filter((c) => used.has(c.id)))
+        await db.routines.bulkPut(fresh)
+        added = fresh.length
+      })
+      setMsg(
+        `${added} rotinas adicionadas (${data.routines.length - added} já existiam e foram ignoradas).` +
+          (created.length ? ` ${created.length} exercícios sem correspondência viraram personalizados — defina os músculos deles na biblioteca.` : ''),
+      )
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Não foi possível ler o arquivo.')
+    }
+  }
+
+  return (
+    <>
+      <SectionTitle>Importar rotinas</SectionTitle>
+      <Card className="space-y-3">
+        <p className="text-sm text-mut">
+          Selecione o arquivo rotinas-referencia.json. Rotinas com o mesmo nome de uma existente são ignoradas; nada é apagado.
+        </p>
+        <input
+          ref={input}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void onFile(f)
+            e.target.value = ''
+          }}
+        />
+        <Btn kind="soft" className="w-full" onClick={() => input.current?.click()}>
+          Escolher arquivo JSON
+        </Btn>
+        {msg && <p className="text-sm">{msg}</p>}
+      </Card>
+    </>
+  )
+}
+
 function Backup() {
   const input = useRef<HTMLInputElement>(null)
   const [last, setLast] = useSetting('lastBackup', '')
@@ -322,6 +390,7 @@ export default function Settings() {
 
       <Gyms />
       <FitbodImport />
+      <RoutineImport />
       <Backup />
 
       <SectionTitle>Zona de perigo</SectionTitle>

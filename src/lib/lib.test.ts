@@ -6,9 +6,9 @@ import type { Exercise, Session, SetEntry } from '../types'
 import { describeSet, e1rm, exerciseSeries, setLoad, subpartSets, weekStart } from './volume'
 import { suggest } from './progression'
 import { rankSubstitutes, similarity } from './substitution'
-import { buildSessions, matchExercise, parseCsv, parseFitbod } from './fitbodImport'
+import { buildRoutines, buildSessions, matchExercise, parseCsv, parseFitbod, validateRoutineFile } from './fitbodImport'
 import { exportBackup, importBackup } from './backup'
-import { db, ensureSeed } from '../db/db'
+import { db, DEFAULT_TARGETS, ensureSeed } from '../db/db'
 
 const byId: Record<string, Exercise> = Object.fromEntries(SEED_EXERCISES.map((e) => [e.id, e]))
 const set = (weight: number, reps: number, extra: Partial<SetEntry> = {}): SetEntry => ({
@@ -180,5 +180,23 @@ describe('banco e backup', () => {
     expect(await db.routines.count()).toBe(5)
     expect((await db.sessions.where('exerciseIds').equals('bench-bb').toArray()).length).toBe(1)
     await expect(importBackup({ foo: 1 })).rejects.toThrow()
+  })
+})
+
+describe('importação de rotinas', () => {
+  it('converte rotinas de referência usando padrões quando faltam séries/reps', () => {
+    const f = validateRoutineFile({
+      app: 'treino-rotinas',
+      routines: [{ name: 'Teste', items: [{ name: 'Lat Pulldown', sets: 4, reps: null }, { name: 'Hammer Curls', sets: 3, reps: 10 }, { name: 'Desconhecido', sets: 3, reps: 8 }] }],
+    })
+    let n = 0
+    const mapping = { 'Lat Pulldown': 'pulldown-wide', 'Hammer Curls': 'curl-hammer' }
+    const [r] = buildRoutines(f, mapping, () => String(n++), 7, DEFAULT_TARGETS)
+    expect(r.order).toBe(7)
+    expect(r.items).toHaveLength(2)
+    expect(r.items[0].targets.high).toMatchObject({ sets: 4, repMin: 8, repMax: 12 })
+    expect(r.items[1].targets.high).toMatchObject({ sets: 3, repMin: 10, repMax: 12 })
+    expect(r.items[1].targets.low).toMatchObject({ sets: 3, repMin: 8, repMax: 10 })
+    expect(() => validateRoutineFile({ app: 'x' })).toThrow()
   })
 })
