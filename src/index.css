@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+
+:root {
+  --bg: #0b0f14;
+  --card: #141a22;
+  --card2: #1d2530;
+  --line: #2a3442;
+  --fg: #e8edf3;
+  --mut: #8b98a9;
+  --acc: #b4f04a;
+  --accfg: #0f1a02;
+  --low: #5cc8ff;
+  --high: #ffb14a;
+  --bad: #ff6b6b;
+  color-scheme: dark;
+}
+:root[data-theme='light'] {
+  --bg: #f3f5f8;
+  --card: #ffffff;
+  --card2: #e9edf2;
+  --line: #d3dae3;
+  --fg: #111820;
+  --mut: #5d6b7c;
+  --acc: #3f7d00;
+  --accfg: #ffffff;
+  --low: #0b74b8;
+  --high: #b56400;
+  --bad: #c62828;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-card2: var(--card2);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-mut: var(--mut);
+  --color-acc: var(--acc);
+  --color-accfg: var(--accfg);
+  --color-low: var(--low);
+  --color-high: var(--high);
+  --color-bad: var(--bad);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+.field {
+  width: 100%;
+  background: var(--card2);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  outline: none;
+}
+.field:focus {
+  border-color: var(--acc);
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.safe-b {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-t {
+  padding-top: env(safe-area-inset-top);
+}

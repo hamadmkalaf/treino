@@ -1,0 +1,88 @@
+import { x } from './helper'
+
+const VASTI = 'vastus-lat vastus-med vastus-int'
+const QUAD = `rectus-fem ${VASTI}`
+const HAMS = 'bf-long bf-short semis'
+
+export const legs = [
+  // ---- agachamentos e leg press
+  x('squat-bb', 'Agachamento livre com barra', 'Barbell Back Squat', 'barbell', 'squat', 'L', `${VASTI} glute-max`, 'adductor erector rectus-fem transverse', 'squat'),
+  x('squat-front', 'Agachamento frontal', 'Front Squat', 'barbell', 'squat', 'L', VASTI, 'glute-max rectus-fem erector adductor abs-upper', 'squat'),
+  x('squat-smith', 'Agachamento no Smith', 'Smith Machine Squat', 'smith', 'squat', 'L', `${VASTI} glute-max`, 'adductor rectus-fem', 'squat'),
+  x('squat-hack', 'Agachamento hack', 'Hack Squat', 'plate', 'squat', 'L', VASTI, 'glute-max rectus-fem adductor', 'squat-machine'),
+  x('squat-pendulum', 'Agachamento pêndulo', 'Pendulum Squat', 'plate', 'squat', 'L', VASTI, 'glute-max rectus-fem adductor', 'squat-machine'),
+  x('squat-v', 'Agachamento V-squat', 'V-Squat Machine', 'plate', 'squat', 'L', `${VASTI} glute-max`, 'adductor rectus-fem', 'squat-machine'),
+  x('squat-belt', 'Agachamento com cinto (belt squat)', 'Belt Squat', 'plate', 'squat', 'L', `${VASTI} glute-max`, 'adductor rectus-fem', 'squat-machine'),
+  x('squat-goblet', 'Agachamento goblet', 'Goblet Squat', 'dumbbell', 'squat', 'L', VASTI, 'glute-max rectus-fem adductor abs-upper', 'squat'),
+  x('squat-cyclist', 'Agachamento com calcanhares elevados', 'Heel-Elevated (Cyclist) Squat', 'dumbbell', 'squat', 'L', VASTI, 'rectus-fem glute-max', 'squat'),
+  x('squat-bw', 'Agachamento livre sem carga', 'Bodyweight Squat', 'bodyweight', 'squat', 'L', VASTI, 'glute-max rectus-fem adductor', 'squat'),
+  x('squat-pistol', 'Agachamento pistol', 'Pistol Squat', 'bodyweight', 'squat', 'L', `${VASTI} glute-max`, 'rectus-fem glute-med adductor', 'squat', true),
+  x('squat-sissy', 'Agachamento sissy', 'Sissy Squat', 'bodyweight', 'legext', 'L', 'rectus-fem', VASTI),
+  x('legpress-45', 'Leg press 45°', '45° Leg Press', 'plate', 'legpress', 'L', `${VASTI} glute-max`, 'adductor rectus-fem', 'legpress'),
+  x('legpress-horizontal', 'Leg press horizontal', 'Horizontal Leg Press', 'machine', 'legpress', 'L', `${VASTI} glute-max`, 'adductor rectus-fem', 'legpress'),
+  x('legpress-uni', 'Leg press unilateral', 'Single-Leg Leg Press', 'plate', 'legpress', 'L', `${VASTI} glute-max`, 'adductor glute-med rectus-fem', 'legpress', true),
+  x('legpress-high', 'Leg press com pés altos', 'High-Foot Leg Press', 'plate', 'legpress', 'L', 'glute-max bf-long semis', `${VASTI} adductor`, 'legpress'),
+  x('legpress-low', 'Leg press com pés baixos', 'Low-Foot Leg Press', 'plate', 'legpress', 'L', VASTI, 'rectus-fem glute-max', 'legpress'),
+  // ---- unilaterais
+  x('bulgarian-db', 'Agachamento búlgaro com halteres', 'Dumbbell Bulgarian Split Squat', 'dumbbell', 'lunge', 'L', `${VASTI} glute-max`, 'glute-med adductor rectus-fem', 'split', true),
+  x('bulgarian-smith', 'Agachamento búlgaro no Smith', 'Smith Bulgarian Split Squat', 'smith', 'lunge', 'L', `${VASTI} glute-max`, 'glute-med adductor rectus-fem', 'split', true),
+  x('split-squat', 'Agachamento afundo estático', 'Split Squat', 'dumbbell', 'lunge', 'L', `${VASTI} glute-max`, 'glute-med adductor', 'split', true),
+  x('lunge-walking', 'Passada com halteres', 'Dumbbell Walking Lunge', 'dumbbell', 'lunge', 'L', `glute-max ${VASTI}`, 'glute-med adductor bf-long', 'lunge', true),
+  x('lunge-reverse', 'Afundo reverso com halteres', 'Dumbbell Reverse Lunge', 'dumbbell', 'lunge', 'L', `glute-max ${VASTI}`, 'glute-med adductor', 'lunge', true),
+  x('lunge-bb', 'Afundo com barra', 'Barbell Lunge', 'barbell', 'lunge', 'L', `${VASTI} glute-max`, 'glute-med adductor', 'lunge', true),
+  x('lunge-smith', 'Afundo no Smith', 'Smith Machine Lunge', 'smith', 'lunge', 'L', `${VASTI} glute-max`, 'glute-med adductor', 'lunge', true),
+  x('step-up', 'Subida no banco (step-up)', 'Dumbbell Step-Up', 'dumbbell', 'lunge', 'M', `glute-max ${VASTI}`, 'glute-med', 'lunge', true),
+  // ---- extensão de joelho
+  x('legext', 'Cadeira extensora', 'Leg Extension', 'machine', 'legext', 'S', QUAD, '', 'legext'),
+  x('legext-uni', 'Cadeira extensora unilateral', 'Single-Leg Extension', 'machine', 'legext', 'S', QUAD, '', 'legext', true),
+  x('reverse-nordic', 'Nórdico reverso', 'Reverse Nordic', 'bodyweight', 'legext', 'L', 'rectus-fem', VASTI),
+  // ---- dobradiça de quadril
+  x('deadlift', 'Levantamento terra', 'Conventional Deadlift', 'barbell', 'hinge', 'M', 'erector glute-max bf-long semis', `trap-up trap-mid lat-upper fore-flex ${VASTI} adductor`, 'deadlift'),
+  x('deadlift-sumo', 'Levantamento terra sumô', 'Sumo Deadlift', 'barbell', 'hinge', 'M', `glute-max adductor ${VASTI}`, 'erector bf-long semis trap-up fore-flex', 'deadlift'),
+  x('deadlift-trapbar', 'Levantamento terra com barra hexagonal', 'Trap Bar Deadlift', 'trapbar', 'hinge', 'M', `glute-max ${VASTI} erector`, 'bf-long semis trap-up fore-flex', 'deadlift'),
+  x('rdl-bb', 'Levantamento terra romeno com barra', 'Barbell Romanian Deadlift', 'barbell', 'hinge', 'L', 'bf-long semis glute-max', 'erector adductor fore-flex', 'rdl'),
+  x('rdl-db', 'Levantamento terra romeno com halteres', 'Dumbbell Romanian Deadlift', 'dumbbell', 'hinge', 'L', 'bf-long semis glute-max', 'erector adductor', 'rdl'),
+  x('rdl-uni', 'Terra romeno unilateral', 'Single-Leg Romanian Deadlift', 'dumbbell', 'hinge', 'L', 'bf-long semis glute-max', 'glute-med erector', 'rdl', true),
+  x('rdl-smith', 'Terra romeno no Smith', 'Smith Romanian Deadlift', 'smith', 'hinge', 'L', 'bf-long semis glute-max', 'erector adductor', 'rdl'),
+  x('stiff', 'Stiff com barra', 'Stiff-Leg Deadlift', 'barbell', 'hinge', 'L', 'bf-long semis', 'glute-max erector adductor', 'rdl'),
+  x('good-morning', 'Bom-dia com barra', 'Good Morning', 'barbell', 'hinge', 'L', 'bf-long semis erector', 'glute-max adductor', 'rdl'),
+  x('pull-through', 'Pull-through na polia', 'Cable Pull-Through', 'cable', 'hinge', 'M', 'glute-max', 'bf-long semis erector'),
+  x('kb-swing', 'Swing com kettlebell', 'Kettlebell Swing', 'kettlebell', 'hinge', 'M', 'glute-max bf-long semis', 'erector trap-up fore-flex'),
+  // ---- flexão de joelho
+  x('legcurl-seated', 'Cadeira flexora', 'Seated Leg Curl', 'machine', 'legcurl', 'L', HAMS, 'gastroc', 'legcurl'),
+  x('legcurl-lying', 'Mesa flexora', 'Lying Leg Curl', 'machine', 'legcurl', 'M', HAMS, 'gastroc', 'legcurl'),
+  x('legcurl-standing', 'Flexora em pé unilateral', 'Standing Single-Leg Curl', 'machine', 'legcurl', 'S', HAMS, 'gastroc', 'legcurl', true),
+  x('legcurl-nordic', 'Flexão nórdica', 'Nordic Hamstring Curl', 'bodyweight', 'legcurl', 'L', HAMS, 'gastroc glute-max erector', 'legcurl'),
+  x('ghr', 'Glute-ham raise', 'Glute-Ham Raise', 'machine', 'legcurl', 'M', HAMS, 'glute-max erector gastroc', 'legcurl'),
+  x('legcurl-ball', 'Flexão de joelhos na bola', 'Swiss Ball Leg Curl', 'bodyweight', 'legcurl', 'S', HAMS, 'glute-max', 'legcurl'),
+  x('legcurl-cable', 'Flexão de joelho na polia', 'Cable Leg Curl', 'cable', 'legcurl', 'M', HAMS, 'gastroc', 'legcurl', true),
+  // ---- glúteos
+  x('hip-thrust-bb', 'Elevação pélvica com barra', 'Barbell Hip Thrust', 'barbell', 'thrust', 'S', 'glute-max', 'bf-long semis glute-med adductor', 'thrust'),
+  x('hip-thrust-machine', 'Elevação pélvica na máquina', 'Machine Hip Thrust', 'machine', 'thrust', 'S', 'glute-max', 'bf-long semis glute-med', 'thrust'),
+  x('hip-thrust-smith', 'Elevação pélvica no Smith', 'Smith Hip Thrust', 'smith', 'thrust', 'S', 'glute-max', 'bf-long semis glute-med', 'thrust'),
+  x('hip-thrust-uni', 'Elevação pélvica unilateral', 'Single-Leg Hip Thrust', 'bodyweight', 'thrust', 'S', 'glute-max', 'glute-med bf-long semis', 'thrust', true),
+  x('glute-bridge', 'Ponte de glúteos', 'Glute Bridge', 'bodyweight', 'thrust', 'S', 'glute-max', 'bf-long semis', 'thrust'),
+  x('glute-kickback-cable', 'Coice de glúteo na polia', 'Cable Glute Kickback', 'cable', 'thrust', 'S', 'glute-max', 'bf-long semis', 'kickback-glute', true),
+  x('glute-kickback-machine', 'Glúteo na máquina (coice)', 'Machine Glute Kickback', 'machine', 'thrust', 'M', 'glute-max', 'bf-long semis', 'kickback-glute', true),
+  x('back-ext-glute', 'Hiperextensão 45° com ênfase em glúteos', '45° Glute-Focused Back Extension', 'bodyweight', 'thrust', 'M', 'glute-max', 'bf-long semis erector', 'backext'),
+  x('abduction-machine', 'Cadeira abdutora', 'Hip Abduction Machine', 'machine', 'abduction', 'S', 'glute-med', 'glute-max', 'abduction'),
+  x('abduction-cable', 'Abdução de quadril na polia', 'Cable Hip Abduction', 'cable', 'abduction', 'L', 'glute-med', 'glute-max', 'abduction', true),
+  x('abduction-lying', 'Abdução de quadril deitado', 'Side-Lying Hip Abduction', 'bodyweight', 'abduction', 'S', 'glute-med', '', 'abduction', true),
+  x('band-walk', 'Caminhada lateral com elástico', 'Banded Lateral Walk', 'band', 'abduction', 'M', 'glute-med', 'glute-max', 'abduction'),
+  // ---- adutores e quadril
+  x('adduction-machine', 'Cadeira adutora', 'Hip Adduction Machine', 'machine', 'adduction', 'L', 'adductor', '', 'adduction'),
+  x('adduction-cable', 'Adução de quadril na polia', 'Cable Hip Adduction', 'cable', 'adduction', 'M', 'adductor', '', 'adduction', true),
+  x('copenhagen', 'Prancha Copenhagen', 'Copenhagen Plank', 'bodyweight', 'adduction', 'M', 'adductor', 'obliques transverse', 'adduction', true),
+  x('squat-sumo-db', 'Agachamento sumô com halter', 'Dumbbell Sumo Squat', 'dumbbell', 'squat', 'L', `adductor glute-max`, VASTI, 'squat'),
+  x('hip-flexion-cable', 'Flexão de quadril na polia', 'Cable Hip Flexion', 'cable', 'legraise', 'M', 'hip-flex', 'rectus-fem abs-lower', undefined, true),
+  // ---- panturrilha e canela
+  x('calf-standing', 'Panturrilha em pé na máquina', 'Standing Calf Raise', 'machine', 'calf', 'L', 'gastroc', 'soleus', 'calf'),
+  x('calf-seated', 'Panturrilha sentado', 'Seated Calf Raise', 'plate', 'calf', 'L', 'soleus', 'gastroc', 'calf'),
+  x('calf-legpress', 'Panturrilha no leg press', 'Leg Press Calf Raise', 'plate', 'calf', 'L', 'gastroc', 'soleus', 'calf'),
+  x('calf-smith', 'Panturrilha no Smith', 'Smith Machine Calf Raise', 'smith', 'calf', 'L', 'gastroc', 'soleus', 'calf'),
+  x('calf-db-uni', 'Panturrilha unilateral com halter', 'Single-Leg Dumbbell Calf Raise', 'dumbbell', 'calf', 'L', 'gastroc', 'soleus', 'calf', true),
+  x('calf-donkey', 'Panturrilha burrinho na máquina', 'Donkey Calf Raise', 'machine', 'calf', 'L', 'gastroc', 'soleus', 'calf'),
+  x('calf-bw', 'Panturrilha no degrau', 'Bodyweight Calf Raise', 'bodyweight', 'calf', 'L', 'gastroc', 'soleus', 'calf'),
+  x('tib-raise', 'Elevação de tibial', 'Tibialis Raise', 'bodyweight', 'shin', 'S', 'tibialis', '', 'shin'),
+  x('tib-raise-cable', 'Dorsiflexão na polia', 'Cable Tibialis Raise', 'cable', 'shin', 'M', 'tibialis', '', 'shin', true),
+]

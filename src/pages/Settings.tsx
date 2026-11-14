@@ -1,0 +1,346 @@
+import { useRef, useState } from 'react'
+import { ExercisePicker } from '../components/exercise'
+import { Btn, Card, Chip, dateFmt, Page, SectionTitle, Stepper } from '../components/ui'
+import { EQUIPMENT } from '../data/muscles'
+import { db, setSetting, TABLES, uid } from '../db/db'
+import { useActiveGym, useExercises, useSetting } from '../db/hooks'
+import { download, exportBackup, importBackup } from '../lib/backup'
+import { buildSessions, matchExercise, parseFitbod, type FitbodRow } from '../lib/fitbodImport'
+import type { Exercise } from '../types'
+
+function Gyms() {
+  const { gyms, active } = useActiveGym()
+  const [editing, setEditing] = useState('')
+  return (
+    <>
+      <SectionTitle>Academias (equipamento disponível)</SectionTitle>
+      <p className="text-xs text-mut">A academia ativa filtra os substitutos sugeridos e a busca da biblioteca.</p>
+      {gyms.map((g) => (
+        <Card key={g.id} className="!p-0">
+          <div className="flex items-center gap-2 p-3">
+            <button
+              aria-label={`Ativar ${g.name}`}
+              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border ${active?.id === g.id ? 'border-acc bg-acc/15 text-acc' : 'border-line text-mut'}`}
+              onClick={() => void setSetting('activeGymId', g.id)}
+            >
+              {active?.id === g.id ? '●' : '○'}
+            </button>
+            <div className="min-w-0 flex-1" onClick={() => setEditing(editing === g.id ? '' : g.id)}>
+              <div className="truncate font-medium">{g.name}</div>
+              <div className="text-xs text-mut">
+                {g.equipment.length} de {EQUIPMENT.length} tipos de equipamento{active?.id === g.id ? ' · ativa' : ''}
+              </div>
+            </div>
+            <button className="px-2 text-sm text-mut" onClick={() => setEditing(editing === g.id ? '' : g.id)}>
+              {editing === g.id ? 'Fechar' : 'Editar'}
+            </button>
+          </div>
+          {editing === g.id && (
+            <div className="space-y-3 border-t border-line p-3">
+              <input className="field" value={g.name} onChange={(e) => void db.gyms.update(g.id, { name: e.target.value })} />
+              <div className="flex flex-wrap gap-2">
+                {EQUIPMENT.map((e) => {
+                  const on = g.equipment.includes(e.id)
+                  return (
+                    <Chip
+                      key={e.id}
+                      active={on}
+                      onClick={() => void db.gyms.update(g.id, { equipment: on ? g.equipment.filter((x) => x !== e.id) : [...g.equipment, e.id] })}
+                    >
+                      {e.pt}
+                    </Chip>
+                  )
+                })}
+              </div>
+              {gyms.length > 1 && (
+                <Btn kind="danger" small onClick={() => confirm(`Excluir “${g.name}”?`) && void db.gyms.delete(g.id)}>
+                  Excluir academia
+                </Btn>
+              )}
+            </div>
+          )}
+        </Card>
+      ))}
+      <Btn
+        kind="soft"
+        small
+        className="w-full"
+        onClick={() => {
+          const name = prompt('Nome da academia')
+          if (!name?.trim()) return
+          const id = uid()
+          void db.gyms.put({ id, name: name.trim(), equipment: EQUIPMENT.map((e) => e.id) })
+          setEditing(id)
+        }}
+      >
+        + Nova academia
+      </Btn>
+    </>
+  )
+}
+
+interface Pending {
+  rows: FitbodRow[]
+  names: { name: string; count: number; match?: string }[]
+}
+
+function FitbodImport() {
+  const { list, byId } = useExercises()
+  const input = useRef<HTMLInputElement>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
+  const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [picking, setPicking] = useState('')
+  const [msg, setMsg] = useState('')
+
+  const onFile = async (file: File) => {
+    setMsg('')
+    try {
+      const rows = parseFitbod(await file.text())
+      if (!rows.length) throw new Error('Nenhuma série de musculação encontrada no arquivo.')
+      const count: Record<string, number> = {}
+      for (const r of rows) count[r.name] = (count[r.name] ?? 0) + 1
+      const names = Object.entries(count)
+        .map(([name, n]) => ({ name, count: n, match: matchExercise(name, list) }))
+        .sort((a, b) => Number(!!a.match) - Number(!!b.match) || b.count - a.count)
+      setMapping(Object.fromEntries(names.filter((n) => n.match).map((n) => [n.name, n.match!])))
+      setPending({ rows, names })
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Não foi possível ler o arquivo.')
+    }
+  }
+
+  const run = async () => {
+    if (!pending) return
+    const final = { ...mapping }
+    const created: Exercise[] = []
+    for (const n of pending.names) {
+      if (final[n.name]) continue
+      // sem correspondência: cria exercício personalizado (músculos podem ser definidos depois)
+      const ex: Exercise = {
+        id: `c-${uid()}`,
+        namePt: n.name,
+        nameEn: n.name,
+        equipment: 'machine',
+        pattern: 'curl',
+        tension: 'mid',
+        targets: [],
+        isCustom: true,
+      }
+      created.push(ex)
+      final[n.name] = ex.id
+    }
+    const sessions = buildSessions(pending.rows, final, uid)
+    await db.transaction('rw', db.sessions, db.exercises, async () => {
+      // reimportar substitui a importação anterior em vez de duplicar
+      const old = (await db.sessions.toArray()).filter((s) => s.source === 'fitbod').map((s) => s.id)
+      await db.sessions.bulkDelete(old)
+      await db.exercises.bulkPut(created)
+      await db.sessions.bulkPut(sessions)
+    })
+    setPending(null)
+    setMsg(
+      `Importados ${sessions.length} treinos e ${pending.rows.length} séries.` +
+        (created.length ? ` ${created.length} exercícios sem correspondência foram criados como personalizados — defina os músculos deles na biblioteca.` : ''),
+    )
+  }
+
+  const unmatched = pending?.names.filter((n) => !mapping[n.name]).length ?? 0
+
+  return (
+    <>
+      <SectionTitle>Importar do Fitbod</SectionTitle>
+      <Card className="space-y-3">
+        <p className="text-sm text-mut">
+          No Fitbod: Log → ⚙ → Export Workout Data. Selecione aqui o arquivo CSV gerado. Importar de novo substitui a importação anterior.
+        </p>
+        <input
+          ref={input}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void onFile(f)
+            e.target.value = ''
+          }}
+        />
+        <Btn kind="soft" className="w-full" onClick={() => input.current?.click()}>
+          Escolher arquivo CSV
+        </Btn>
+        {msg && <p className="text-sm">{msg}</p>}
+        {pending && (
+          <>
+            <div className="text-sm">
+              <b>{pending.rows.length}</b> séries, <b>{pending.names.length}</b> exercícios distintos.{' '}
+              {unmatched ? `${unmatched} sem correspondência (serão criados como personalizados).` : 'Todos reconhecidos.'}
+            </div>
+            <div className="max-h-80 space-y-1 overflow-y-auto">
+              {pending.names.map((n) => (
+                <button
+                  key={n.name}
+                  className="flex w-full items-center justify-between gap-2 rounded-xl bg-card2 px-3 py-2 text-left text-sm"
+                  onClick={() => setPicking(n.name)}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate">{n.name}</span>
+                    <span className={`block truncate text-xs ${mapping[n.name] ? 'text-acc' : 'text-high'}`}>
+                      → {mapping[n.name] ? byId[mapping[n.name]]?.namePt : 'criar personalizado'}
+                    </span>
+                  </span>
+                  <span className="num shrink-0 text-xs text-mut">{n.count} séries</span>
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Btn kind="ghost" small onClick={() => setPending(null)}>
+                Cancelar
+              </Btn>
+              <Btn small onClick={() => void run()}>
+                Importar
+              </Btn>
+            </div>
+          </>
+        )}
+      </Card>
+      <ExercisePicker
+        open={!!picking}
+        onClose={() => setPicking('')}
+        title={`Associar “${picking}”`}
+        onPick={(ex) => {
+          setMapping({ ...mapping, [picking]: ex.id })
+          setPicking('')
+        }}
+      />
+    </>
+  )
+}
+
+function Backup() {
+  const input = useRef<HTMLInputElement>(null)
+  const [last, setLast] = useSetting('lastBackup', '')
+  const [msg, setMsg] = useState('')
+
+  const doExport = async () => {
+    const now = new Date()
+    await setSetting('lastBackup', now.toISOString())
+    const data = await exportBackup()
+    download(`treino-backup-${now.toISOString().slice(0, 10)}.json`, JSON.stringify(data))
+    setLast(now.toISOString())
+    setMsg('Backup gerado. Guarde o arquivo em local seguro (Drive, e-mail).')
+  }
+  const doImport = async (file: File) => {
+    try {
+      const data: unknown = JSON.parse(await file.text())
+      if (!confirm('Restaurar este backup? Todos os dados atuais do app serão substituídos.')) return
+      await importBackup(data)
+      setMsg('Backup restaurado.')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Arquivo inválido.')
+    }
+  }
+
+  return (
+    <>
+      <SectionTitle>Backup</SectionTitle>
+      <Card className="space-y-3">
+        <p className="text-sm text-mut">
+          Os dados ficam apenas neste aparelho. Limpar os dados do navegador ou desinstalar o app apaga o histórico — exporte um backup de tempos em
+          tempos.{last ? ` Último: ${dateFmt(last, { day: '2-digit', month: 'short', year: 'numeric' })}.` : ''}
+        </p>
+        <input
+          ref={input}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void doImport(f)
+            e.target.value = ''
+          }}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <Btn onClick={() => void doExport()}>Exportar</Btn>
+          <Btn kind="soft" onClick={() => input.current?.click()}>
+            Restaurar
+          </Btn>
+        </div>
+        {msg && <p className="text-sm">{msg}</p>}
+      </Card>
+    </>
+  )
+}
+
+export default function Settings() {
+  const [theme, setTheme] = useSetting<'dark' | 'light'>('theme', 'dark')
+  const [effort, setEffort] = useSetting<'rir' | 'rpe'>('effort', 'rir')
+  const [rest, setRest] = useSetting('defaultRest', 120)
+  const [volMin, setVolMin] = useSetting('volMin', 4)
+  const [volMax, setVolMax] = useSetting('volMax', 12)
+  const [defaultMode, setDefaultMode] = useSetting<'low' | 'high'>('defaultMode', 'high')
+
+  return (
+    <Page title="Ajustes" back="/">
+      <SectionTitle>Preferências</SectionTitle>
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-mut">Tema</span>
+          <div className="flex gap-2">
+            <Chip active={theme === 'dark'} onClick={() => setTheme('dark')}>
+              Escuro
+            </Chip>
+            <Chip active={theme === 'light'} onClick={() => setTheme('light')}>
+              Claro
+            </Chip>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-mut">Registrar esforço como</span>
+          <div className="flex gap-2">
+            <Chip active={effort === 'rir'} onClick={() => setEffort('rir')}>
+              RIR
+            </Chip>
+            <Chip active={effort === 'rpe'} onClick={() => setEffort('rpe')}>
+              RPE
+            </Chip>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-mut">Modo sem bloco ativo</span>
+          <div className="flex gap-2">
+            <Chip active={defaultMode === 'low'} onClick={() => setDefaultMode('low')}>
+              Low
+            </Chip>
+            <Chip active={defaultMode === 'high'} onClick={() => setDefaultMode('high')}>
+              High
+            </Chip>
+          </div>
+        </div>
+        <Stepper label="Descanso padrão (s)" value={rest} min={0} max={600} step={15} onChange={setRest} />
+        <Stepper label="Volume semanal mínimo (séries)" value={volMin} min={0} max={volMax} onChange={setVolMin} />
+        <Stepper label="Volume semanal máximo (séries)" value={volMax} min={volMin} max={40} onChange={setVolMax} />
+      </Card>
+
+      <Gyms />
+      <FitbodImport />
+      <Backup />
+
+      <SectionTitle>Zona de perigo</SectionTitle>
+      <Btn
+        kind="danger"
+        small
+        className="w-full"
+        onClick={async () => {
+          if (!confirm('Apagar TODOS os dados do app (treinos, rotinas, blocos, exercícios personalizados)? Não pode ser desfeito.')) return
+          if (prompt('Digite APAGAR para confirmar') !== 'APAGAR') return
+          await db.transaction('rw', TABLES.map((t) => db.table(t)), async () => {
+            for (const t of TABLES) await db.table(t).clear()
+          })
+          location.reload()
+        }}
+      >
+        Apagar todos os dados
+      </Btn>
+      <p className="pt-2 text-center text-xs text-mut">Treino v0.1 · dados locais, uso offline</p>
+    </Page>
+  )
+}
