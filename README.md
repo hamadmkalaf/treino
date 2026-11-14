@@ -9,6 +9,7 @@ npm run dev      # desenvolvimento
 npm run test     # testes da lógica (volume, progressão, substituição, importação, backup)
 npm run build    # gera dist/ (site estático + service worker)
 npm run preview  # serve dist/ localmente
+npm run publicar # compila e envia o site para a branch gh-pages (GitHub Pages)
 ```
 
 ## Publicar
