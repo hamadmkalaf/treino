@@ -31,8 +31,8 @@ export async function importBackup(data: unknown) {
   })
 }
 
-export function download(filename: string, text: string, type = 'application/json') {
-  const url = URL.createObjectURL(new Blob([text], { type }))
+export function download(filename: string, data: string | Uint8Array, type = 'application/json') {
+  const url = URL.createObjectURL(new Blob([data as BlobPart], { type }))
   const a = document.createElement('a')
   a.href = url
   a.download = filename

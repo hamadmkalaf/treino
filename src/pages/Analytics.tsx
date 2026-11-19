@@ -2,10 +2,21 @@ import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { ExerciseChart } from '../components/charts'
 import { ExercisePicker } from '../components/exercise'
-import { Btn, Card, Chip, cx, durationMin, Empty, ModeBadge, Page, SectionTitle } from '../components/ui'
+import { Btn, Card, Chip, cx, durationMin, Empty, ModeBadge, Page, SectionTitle, Sheet, Stepper } from '../components/ui'
 import { GROUPS, SUBPARTS } from '../data/muscles'
 import { useBlocks, useExercises, useSessions, useSetting } from '../db/hooks'
 import { byWeek, dayKey, exerciseSeries, subpartSets, weekStart, workingSets, type ExercisePoint } from '../lib/volume'
+import {
+  DEFAULT_REPS,
+  isCustom,
+  METRIC_LIMITS,
+  subpartReps,
+  targetFor,
+  withTarget,
+  type Range,
+  type VolumeMetric,
+  type VolumeTargets,
+} from '../lib/volumeTargets'
 import type { Session } from '../types'
 
 const fmtSets = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ','))
@@ -16,19 +27,95 @@ const addDays = (key: string, n: number) => {
 }
 const shortDay = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 
-/** faixa de séries semanais considerada adequada por subparte (ajustável em Ajustes) */
+const fmtVal = (n: number, metric: VolumeMetric) => (metric === 'reps' ? String(Math.round(n)) : fmtSets(n))
+const UNIT: Record<VolumeMetric, string> = { sets: 'séries', reps: 'reps' }
+
+/** editor dos alvos semanais por grupo muscular (séries ou repetições) */
+function TargetEditor({
+  open,
+  onClose,
+  metric,
+  general,
+  setGeneral,
+  targets,
+  setTargets,
+}: {
+  open: boolean
+  onClose: () => void
+  metric: VolumeMetric
+  general: Range
+  setGeneral: (r: Range) => void
+  targets: VolumeTargets
+  setTargets: (t: VolumeTargets) => void
+}) {
+  const { max: limit, step } = METRIC_LIMITS[metric]
+  const unit = UNIT[metric]
+  const row = (value: Range, onChange: (r: Range) => void) => (
+    <>
+      <Stepper label={`Mínimo (${unit})`} value={value.min} min={0} max={value.max} step={step} onChange={(min) => onChange({ ...value, min })} />
+      <Stepper label={`Máximo (${unit})`} value={value.max} min={value.min} max={limit} step={step} onChange={(max) => onChange({ ...value, max })} />
+    </>
+  )
+  return (
+    <Sheet open={open} onClose={onClose} title={`Alvos semanais — ${unit}`}>
+      <p className="text-xs text-mut">
+        Faixa de {unit} por semana considerada adequada para cada grupo. Grupos sem alvo próprio usam o padrão. Vale para o grupo e para as subpartes
+        dele.
+      </p>
+      <Card className="space-y-3">
+        <div className="text-sm font-semibold">Padrão (demais grupos)</div>
+        {row(general, setGeneral)}
+      </Card>
+      {GROUPS.map((g) => {
+        const custom = isCustom(targets, metric, g.id)
+        const value = targetFor(targets, metric, g.id, general)
+        return (
+          <Card key={g.id} className={cx('space-y-3', !custom && 'opacity-80')}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold">{g.pt}</span>
+              {custom ? (
+                <button className="text-xs text-acc" onClick={() => setTargets(withTarget(targets, metric, g.id, null))}>
+                  usar padrão
+                </button>
+              ) : (
+                <span className="text-xs text-mut">padrão</span>
+              )}
+            </div>
+            {row(value, (r) => setTargets(withTarget(targets, metric, g.id, r)))}
+          </Card>
+        )
+      })}
+    </Sheet>
+  )
+}
+
+/** séries (ou repetições) semanais por grupo/subparte, comparadas com o alvo de cada grupo */
 function Volume({ sessions }: { sessions: Session[] }) {
   const { byId } = useExercises()
   const [week, setWeek] = useState(() => weekStart(new Date()))
   const [open, setOpen] = useState<string>('')
-  const [min] = useSetting('volMin', 4)
-  const [max] = useSetting('volMax', 12)
+  const [editing, setEditing] = useState(false)
+  const [metric, setMetric] = useSetting<VolumeMetric>('volMetric', 'sets')
+  const [volMin, setVolMin] = useSetting('volMin', 4)
+  const [volMax, setVolMax] = useSetting('volMax', 12)
+  const [repsDefault, setRepsDefault] = useSetting<Range>('volRepsDefault', DEFAULT_REPS)
+  const [targets, setTargets] = useSetting<VolumeTargets>('volTargets', {})
+  const general: Range = metric === 'sets' ? { min: volMin, max: volMax } : repsDefault
+  const setGeneral = (r: Range) => {
+    if (metric === 'reps') return setRepsDefault(r)
+    setVolMin(r.min)
+    setVolMax(r.max)
+  }
   const weeks = useMemo(() => byWeek(sessions), [sessions])
-  const sets = useMemo(() => subpartSets(weeks[week] ?? [], byId), [weeks, week, byId])
+  const values = useMemo(
+    () => (metric === 'reps' ? subpartReps(weeks[week] ?? [], byId) : subpartSets(weeks[week] ?? [], byId)),
+    [weeks, week, byId, metric],
+  )
+  const rangeOf = (groupId: string) => targetFor(targets, metric, groupId, general)
   const current = week === weekStart(new Date())
-  const scale = Math.max(max * 1.25, ...Object.values(sets))
+  const scale = Math.max(1, ...GROUPS.map((g) => rangeOf(g.id).max * 1.25), ...Object.values(values))
 
-  const bar = (value: number) => (
+  const bar = (value: number, { min, max }: Range) => (
     <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-card2">
       <div className="absolute inset-y-0 bg-fg/10" style={{ left: `${(min / scale) * 100}%`, width: `${((max - min) / scale) * 100}%` }} />
       <div
@@ -37,7 +124,8 @@ function Volume({ sessions }: { sessions: Session[] }) {
       />
     </div>
   )
-  const low = SUBPARTS.filter((s) => (sets[s.id] ?? 0) < min)
+  const low = SUBPARTS.filter((s) => (values[s.id] ?? 0) < rangeOf(s.groupId).min)
+  const customCount = Object.keys(targets?.[metric] ?? {}).length
 
   return (
     <>
@@ -57,28 +145,46 @@ function Volume({ sessions }: { sessions: Session[] }) {
           ›
         </button>
       </Card>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex gap-2">
+          <Chip active={metric === 'sets'} onClick={() => setMetric('sets')}>
+            Séries
+          </Chip>
+          <Chip active={metric === 'reps'} onClick={() => setMetric('reps')}>
+            Repetições
+          </Chip>
+        </div>
+        <Btn kind="soft" small onClick={() => setEditing(true)}>
+          Alvos por grupo{customCount ? ` (${customCount})` : ''}
+        </Btn>
+      </div>
       <p className="text-xs text-mut">
-        Séries na semana por subparte: alvo primário conta 1, secundário 0,5. Faixa sombreada = {min}–{max} séries.{' '}
-        <span className="text-low">Azul</span> abaixo, <span className="text-acc">verde</span> dentro, <span className="text-high">laranja</span> acima.
+        {metric === 'sets' ? 'Séries' : 'Repetições (incluindo mini-séries)'} na semana por subparte: alvo primário conta 1, secundário 0,5. Faixa
+        sombreada = alvo do grupo (padrão {general.min}–{general.max}). <span className="text-low">Azul</span> abaixo,{' '}
+        <span className="text-acc">verde</span> dentro, <span className="text-high">laranja</span> acima.
       </p>
       {GROUPS.map((g) => {
         const parts = SUBPARTS.filter((s) => s.groupId === g.id)
-        const best = Math.max(...parts.map((s) => sets[s.id] ?? 0))
+        const best = Math.max(...parts.map((s) => values[s.id] ?? 0))
+        const range = rangeOf(g.id)
         const isOpen = open === g.id
         return (
           <Card key={g.id} className="!py-3" onClick={() => setOpen(isOpen ? '' : g.id)}>
             <div className="flex items-center gap-3">
               <span className="w-32 shrink-0 truncate text-sm font-medium">{g.pt}</span>
-              {bar(best)}
-              <span className="num w-9 shrink-0 text-right text-sm">{fmtSets(best)}</span>
+              {bar(best, range)}
+              <span className="num w-9 shrink-0 text-right text-sm">{fmtVal(best, metric)}</span>
             </div>
             {isOpen && (
               <div className="mt-3 space-y-2 border-t border-line pt-3">
+                <div className="text-xs text-mut">
+                  Alvo: {range.min}–{range.max} {UNIT[metric]}/semana{isCustom(targets, metric, g.id) ? ' (personalizado)' : ' (padrão)'}
+                </div>
                 {parts.map((s) => (
                   <div key={s.id} className="flex items-center gap-3">
                     <span className="w-32 shrink-0 text-xs text-mut">{s.pt}</span>
-                    {bar(sets[s.id] ?? 0)}
-                    <span className="num w-9 shrink-0 text-right text-xs">{fmtSets(sets[s.id] ?? 0)}</span>
+                    {bar(values[s.id] ?? 0, range)}
+                    <span className="num w-9 shrink-0 text-right text-xs">{fmtVal(values[s.id] ?? 0, metric)}</span>
                   </div>
                 ))}
               </div>
@@ -88,10 +194,19 @@ function Volume({ sessions }: { sessions: Session[] }) {
       })}
       {(weeks[week] ?? []).length > 0 && low.length > 0 && (
         <Card>
-          <div className="text-sm font-semibold">Abaixo de {min} séries nesta semana</div>
+          <div className="text-sm font-semibold">Abaixo do alvo nesta semana</div>
           <div className="mt-1 text-sm text-mut">{low.map((s) => s.pt).join(' · ')}</div>
         </Card>
       )}
+      <TargetEditor
+        open={editing}
+        onClose={() => setEditing(false)}
+        metric={metric}
+        general={general}
+        setGeneral={setGeneral}
+        targets={targets ?? {}}
+        setTargets={setTargets}
+      />
     </>
   )
 }

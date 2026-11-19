@@ -211,3 +211,93 @@ describe('importação de rotinas', () => {
     expect(matchExercise('Dumbbell Incline Bench Press', SEED_EXERCISES)).toBe('incline-db')
   })
 })
+
+describe('alvos de volume por grupo', () => {
+  it('usa o alvo do grupo quando existe e o padrão caso contrário', async () => {
+    const { targetFor, withTarget, isCustom } = await import('./volumeTargets')
+    const general = { min: 4, max: 12 }
+    let t = withTarget({}, 'sets', 'chest', { min: 10, max: 20 })
+    expect(targetFor(t, 'sets', 'chest', general)).toEqual({ min: 10, max: 20 })
+    expect(targetFor(t, 'sets', 'back', general)).toEqual(general)
+    expect(targetFor(t, 'reps', 'chest', general)).toEqual(general)
+    expect(isCustom(t, 'sets', 'chest')).toBe(true)
+    t = withTarget(t, 'reps', 'chest', { min: 80, max: 50 })
+    expect(t.reps!.chest).toEqual({ min: 80, max: 80 })
+    t = withTarget(t, 'sets', 'chest', null)
+    expect(isCustom(t, 'sets', 'chest')).toBe(false)
+    expect(t.reps!.chest).toBeTruthy()
+    expect(targetFor(undefined, 'sets', 'chest', general)).toEqual(general)
+  })
+  it('conta repetições por subparte com mini-séries e peso 0,5 no secundário', async () => {
+    const { subpartReps } = await import('./volumeTargets')
+    const ex = SEED_EXERCISES.find((e) => e.targets.some((t) => t.role === 'secondary'))!
+    const r = subpartReps(
+      [session('2026-03-02T10:00:00', ex.id, [set(50, 10, { segments: [{ weight: 50, reps: 4 }] }), set(20, 8, { warmup: true }), set(50, 9, { done: false })])],
+      byId,
+    )
+    const p = ex.targets.find((t) => t.role === 'primary')!
+    const s2 = ex.targets.find((t) => t.role === 'secondary')!
+    expect(r[p.subpartId]).toBe(14)
+    if (s2.subpartId !== p.subpartId) expect(r[s2.subpartId]).toBe(7)
+  })
+})
+
+describe('exportação do histórico (.xlsx)', () => {
+  it('filtra pelo período (datas locais inclusivas) e ignora sessões em andamento', async () => {
+    const { sessionsInRange, presetRange } = await import('./historyExport')
+    const a = { ...session('2026-03-01T10:00:00', 'x', []), end: '2026-03-01T11:00:00' }
+    const b = { ...session('2026-03-10T23:30:00', 'x', []), end: '2026-03-11T00:30:00' }
+    const c = session('2026-03-12T10:00:00', 'x', [])
+    expect(sessionsInRange([b, a, c], { from: '2026-03-02', to: '2026-03-10' }).map((s) => s.id)).toEqual([b.id])
+    expect(sessionsInRange([b, a, c], {}).map((s) => s.id)).toEqual([a.id, b.id])
+    expect(presetRange('7', new Date(2026, 2, 10))).toEqual({ from: '2026-03-04', to: '2026-03-10' })
+    expect(presetRange('all')).toEqual({})
+  })
+  it('monta as abas com uma linha por série concluída', async () => {
+    const { historySheets } = await import('./historyExport')
+    const ex = SEED_EXERCISES[0]
+    const s = { ...session('2026-03-02T10:00:00', ex.id, [set(20, 10, { warmup: true }), set(60, 8, { rir: 2 }), set(60, 7, { done: false })]), end: '2026-03-02T11:00:00' }
+    const [series, treinos, exercicios] = historySheets([s], byId)
+    expect(series.rows).toHaveLength(2)
+    const row = series.rows[1]
+    expect(row[5]).toBe(ex.namePt)
+    expect(row[10]).toBe(60)
+    expect(row[12]).toBe(2)
+    expect(row[13]).toBe(8)
+    expect(treinos.rows[0][5]).toBe(60)
+    expect(treinos.rows[0][7]).toBe(1)
+    expect(treinos.rows[0][9]).toBe(480)
+    expect(exercicios.rows[0][3]).toBe(1)
+    for (const sh of [series, treinos, exercicios]) for (const r of sh.rows) expect(r.length).toBe(sh.columns.length)
+  })
+  it('gera um arquivo ZIP/XLSX bem formado', async () => {
+    const { buildXlsx, crc32, colName, excelSerial } = await import('./xlsx')
+    expect(crc32(new TextEncoder().encode('123456789'))).toBe(0xcbf43926)
+    expect([colName(0), colName(25), colName(26), colName(701)]).toEqual(['A', 'Z', 'AA', 'ZZ'])
+    expect(excelSerial(new Date(2026, 0, 1, 12, 0))).toBe(46023.5)
+    const bytes = buildXlsx([{ name: 'Teste', columns: [{ header: 'A' }, { header: 'B', format: 'date' }], rows: [['x & <y>', new Date(2026, 0, 1)], [1.5, null]] }])
+    expect([...bytes.slice(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04])
+    const text = new TextDecoder().decode(bytes)
+    expect(text).toContain('x &amp; &lt;y&gt;')
+    expect(text).toContain('<sheet name="Teste"')
+  })
+})
+
+describe('preservação dos dados do aparelho', () => {
+  it('exportar o histórico e definir alvos não altera os registros existentes', async () => {
+    const { historyXlsx, sessionsInRange } = await import('./historyExport')
+    const { withTarget } = await import('./volumeTargets')
+    const ex = SEED_EXERCISES[0]
+    await db.sessions.put({ ...session('2026-02-01T10:00:00', ex.id, [set(40, 10)]), id: 'keep-1', end: '2026-02-01T11:00:00' })
+    await db.settings.put({ key: 'volMin', value: 6 })
+    await db.settings.put({ key: 'volMax', value: 14 })
+    const before = await exportBackup()
+    historyXlsx(sessionsInRange(await db.sessions.toArray(), {}), byId)
+    await db.settings.put({ key: 'volTargets', value: withTarget({}, 'sets', 'chest', { min: 10, max: 16 }) })
+    const after = await exportBackup()
+    expect(after.tables.sessions).toEqual(before.tables.sessions)
+    expect(after.tables.routines).toEqual(before.tables.routines)
+    expect(after.tables.settings).toEqual(expect.arrayContaining(before.tables.settings))
+    expect(db.verno).toBe(1)
+  })
+})
