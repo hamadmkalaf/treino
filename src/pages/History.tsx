@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, cx, dateFmt, durationMin, Empty, ModeBadge, Page, SectionTitle } from '../components/ui'
-import { useExercises, useSessions } from '../db/hooks'
+import { Btn, Card, Chip, cx, dateFmt, durationMin, Empty, ModeBadge, Page, SectionTitle, Sheet } from '../components/ui'
+import { useBlocks, useExercises, useSessions, useSetting } from '../db/hooks'
+import { download } from '../lib/backup'
+import { historyFilename, historyXlsx, presetRange, RANGE_PRESETS, sessionsInRange, type HistoryRange, type RangePreset } from '../lib/historyExport'
 import { dayKey, describeSet, workingSets } from '../lib/volume'
+import { XLSX_MIME } from '../lib/xlsx'
 import type { Session } from '../types'
 
 function Calendar({ sessions, selected, onSelect }: { sessions: Session[]; selected: string; onSelect: (day: string) => void }) {
@@ -71,16 +74,89 @@ function Calendar({ sessions, selected, onSelect }: { sessions: Session[]; selec
   )
 }
 
+/** exporta o histórico do período escolhido em planilha .xlsx (apenas leitura: não altera nenhum dado) */
+function ExportSheet({ open, onClose, sessions }: { open: boolean; onClose: () => void; sessions: Session[] }) {
+  const { byId } = useExercises()
+  const blocks = useBlocks()
+  const [preset, setPreset] = useSetting<RangePreset>('exportPreset', '30')
+  const today = dayKey(new Date())
+  const oldest = sessions.length ? dayKey(new Date(sessions[sessions.length - 1].start)) : today
+  const [from, setFrom] = useState(oldest)
+  const [to, setTo] = useState(today)
+  const [msg, setMsg] = useState('')
+  const range: HistoryRange = preset === 'custom' ? { from: from || undefined, to: to || undefined } : presetRange(preset)
+  const list = useMemo(() => sessionsInRange(sessions, range), [sessions, range.from, range.to])
+  const sets = list.reduce((a, s) => a + s.exercises.reduce((b, e) => b + workingSets(e).length, 0), 0)
+  const invalid = preset === 'custom' && !!from && !!to && from > to
+
+  const run = () => {
+    try {
+      download(historyFilename(range), historyXlsx(list, byId, blocks), XLSX_MIME)
+      setMsg('Planilha gerada.')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Não foi possível gerar a planilha.')
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Exportar histórico (.xlsx)">
+      <p className="text-sm text-mut">Escolha o período. A planilha traz uma aba por série, uma por treino e um resumo por exercício.</p>
+      <div className="flex flex-wrap gap-2">
+        {RANGE_PRESETS.map((p) => (
+          <Chip key={p.id} active={preset === p.id} onClick={() => setPreset(p.id)}>
+            {p.label}
+          </Chip>
+        ))}
+      </div>
+      {preset === 'custom' && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-xs text-mut">
+            De
+            <input type="date" className="field mt-1" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+          </label>
+          <label className="text-xs text-mut">
+            Até
+            <input type="date" className="field mt-1" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+          </label>
+        </div>
+      )}
+      <Card className="!py-3 text-sm">
+        {invalid ? (
+          <span className="text-bad">A data inicial é depois da final.</span>
+        ) : (
+          <>
+            <span className="font-semibold">{list.length} treinos</span> · {sets} séries válidas
+            {range.from ? ` · ${dateFmt(`${range.from}T12:00:00`, { day: '2-digit', month: 'short', year: 'numeric' })}` : ' · desde o início'}
+            {range.to ? ` a ${dateFmt(`${range.to}T12:00:00`, { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+          </>
+        )}
+      </Card>
+      <Btn className="w-full" disabled={invalid || !list.length} onClick={run}>
+        Gerar planilha
+      </Btn>
+      {msg && <p className="text-sm">{msg}</p>}
+    </Sheet>
+  )
+}
+
 export default function History() {
   const nav = useNavigate()
   const sessions = useSessions()
   const { byId } = useExercises()
   const [day, setDay] = useState('')
   const [shown, setShown] = useState(20)
+  const [exporting, setExporting] = useState(false)
   const list = day ? sessions.filter((s) => dayKey(new Date(s.start)) === day) : sessions
 
   return (
-    <Page title="Histórico">
+    <Page
+      title="Histórico"
+      right={
+        <Btn kind="soft" small onClick={() => setExporting(true)}>
+          Exportar .xlsx
+        </Btn>
+      }
+    >
       <Calendar sessions={sessions} selected={day} onSelect={setDay} />
       <SectionTitle
         right={
@@ -125,6 +201,7 @@ export default function History() {
           Mostrar mais
         </button>
       )}
+      <ExportSheet open={exporting} onClose={() => setExporting(false)} sessions={sessions} />
     </Page>
   )
 }

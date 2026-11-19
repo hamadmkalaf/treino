@@ -419,8 +419,9 @@ export default function Settings() {
           </div>
         </div>
         <Stepper label="Descanso padrão (s)" value={rest} min={0} max={600} step={15} onChange={setRest} />
-        <Stepper label="Volume semanal mínimo (séries)" value={volMin} min={0} max={volMax} onChange={setVolMin} />
-        <Stepper label="Volume semanal máximo (séries)" value={volMax} min={volMin} max={40} onChange={setVolMax} />
+        <Stepper label="Volume semanal mínimo padrão (séries)" value={volMin} min={0} max={volMax} onChange={setVolMin} />
+        <Stepper label="Volume semanal máximo padrão (séries)" value={volMax} min={volMin} max={40} onChange={setVolMax} />
+        <p className="text-xs text-mut">Alvos por grupo muscular (séries ou repetições) são definidos em Análises › Volume semanal › Alvos por grupo.</p>
       </Card>
 
       <Gyms />
