@@ -1,6 +1,6 @@
 // Service worker do app: pré-cache de todos os arquivos do build para funcionar 100% offline.
 // A lista de arquivos é injetada no build pelo plugin "treino-sw" (vite.config.ts).
-const manifest = [{"url":"assets/index-CCqkzu7h.js","revision":null},{"url":"assets/historico-referencia-CX-id0Cj.js","revision":null},{"url":"assets/rotinas-referencia-BjhqsWAB.js","revision":null},{"url":"assets/index-DD_ubM9w.css","revision":null},{"url":"index.html","revision":"4e93d9251d"},{"url":"apple-touch-icon.png","revision":"adb048c642"},{"url":"icon-192.png","revision":"36f05d618c"},{"url":"icon-512.png","revision":"0dfef6a3b0"},{"url":"icon.svg","revision":"5482be27a6"},{"url":"manifest.webmanifest","revision":"892babc362"}]
+const manifest = [{"url":"assets/index-CJBIFR4b.js","revision":null},{"url":"assets/historico-referencia-CX-id0Cj.js","revision":null},{"url":"assets/rotinas-referencia-BjhqsWAB.js","revision":null},{"url":"assets/index-BXSO_uXu.css","revision":null},{"url":"index.html","revision":"db33ffca13"},{"url":"apple-touch-icon.png","revision":"adb048c642"},{"url":"icon-192.png","revision":"36f05d618c"},{"url":"icon-512.png","revision":"0dfef6a3b0"},{"url":"icon.svg","revision":"5482be27a6"},{"url":"manifest.webmanifest","revision":"892babc362"}]
 const urls = manifest.map((e) => new URL(e.url, self.registration.scope).href)
 
 // o nome do cache muda quando qualquer arquivo muda, forçando a atualização
