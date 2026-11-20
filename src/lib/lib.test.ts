@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { SEED_EXERCISES } from '../data/exercises'
 import { EQUIP_LABEL, PATTERNS, SUBPART_BY_ID } from '../data/muscles'
 import type { Exercise, Session, SetEntry } from '../types'
-import { describeSet, e1rm, exerciseSeries, setLoad, subpartSets, weekStart } from './volume'
+import { describeSet, e1rm, exerciseSeries, groupSets, groupTarget, setLoad, subpartSets, weekMode, weekStart } from './volume'
 import { suggest } from './progression'
 import { rankSubstitutes, similarity } from './substitution'
 import { buildRoutines, buildSessions, matchExercise, parseCsv, parseFitbod, validateRoutineFile } from './fitbodImport'
 import { exportBackup, importBackup } from './backup'
-import { db, DEFAULT_TARGETS, ensureSeed } from '../db/db'
+import { db, DEFAULT_TARGETS, ensureSeed, getModeDefaults, mergeModeDefaults, setSetting } from '../db/db'
+import { applyModeTargetToRoutines } from '../db/actions'
 import routinesRef from '../../dados-importacao/rotinas-referencia.json'
 import historyRef from '../../dados-importacao/historico-referencia.csv?raw'
 
@@ -209,5 +210,67 @@ describe('importação de rotinas', () => {
     const unmatched = [...names].filter((n) => !matchExercise(n, SEED_EXERCISES))
     expect(unmatched).toEqual([])
     expect(matchExercise('Dumbbell Incline Bench Press', SEED_EXERCISES)).toBe('incline-db')
+  })
+})
+
+describe('volume por grupo e alvos', () => {
+  it('conta cada série uma vez por grupo, mesmo com várias subpartes do grupo', () => {
+    const ex: Exercise = {
+      id: 'x', namePt: 'x', nameEn: 'x', equipment: 'cable', pattern: 'curl', tension: 'mid',
+      targets: [
+        { subpartId: 'bi-long', role: 'primary' },
+        { subpartId: 'bi-short', role: 'primary' },
+        { subpartId: 'brachiorad', role: 'secondary' },
+      ],
+    }
+    const s = session('2026-01-05T10:00:00', 'x', [set(20, 10), set(20, 10), set(20, 10, { warmup: true })])
+    const g = groupSets([s], { x: ex })
+    expect(g.biceps).toBe(2)
+    expect(g.forearms).toBe(1)
+    expect(subpartSets([s], { x: ex })['bi-long'] + subpartSets([s], { x: ex })['bi-short']).toBe(4)
+  })
+  it('primário prevalece sobre secundário no mesmo grupo', () => {
+    const ex: Exercise = {
+      id: 'y', namePt: 'y', nameEn: 'y', equipment: 'cable', pattern: 'row', tension: 'mid',
+      targets: [{ subpartId: 'lat-upper', role: 'primary' }, { subpartId: 'rhomb', role: 'secondary' }],
+    }
+    expect(groupSets([session('2026-01-05T10:00:00', 'y', [set(50, 10)])], { y: ex }).back).toBe(1)
+  })
+  it('alvo por grupo usa o valor salvo do modo ou o padrão', () => {
+    const t = { low: { biceps: { min: 4, max: 8 } } }
+    expect(groupTarget(t, 'low', 'biceps')).toEqual({ min: 4, max: 8 })
+    expect(groupTarget(t, 'low', 'triceps')).toEqual({ min: 6, max: 10 })
+    expect(groupTarget(t, 'high', 'biceps')).toEqual({ min: 10, max: 20 })
+  })
+  it('modo da semana é o predominante', () => {
+    const s = (mode: 'low' | 'high') => ({ ...session('2026-01-05T10:00:00', 'x', []), mode })
+    expect(weekMode([])).toBeUndefined()
+    expect(weekMode([s('low'), s('low'), s('high')])).toBe('low')
+    expect(weekMode([s('low'), s('high')])).toBe('high')
+  })
+})
+
+describe('padrões de low/high volume', () => {
+  it('completa valores salvos com os padrões do app', async () => {
+    expect(mergeModeDefaults({ low: { sets: 3 } }).low).toEqual({ ...DEFAULT_TARGETS.low, sets: 3 })
+    await setSetting('modeDefaults', { high: { ...DEFAULT_TARGETS.high, repMin: 12, repMax: 15 } })
+    const d = await getModeDefaults()
+    expect(d.high.repMin).toBe(12)
+    expect(d.low).toEqual(DEFAULT_TARGETS.low)
+  })
+  it('aplica o alvo de um modo a todas as rotinas sem mexer no outro modo', async () => {
+    await db.routines.clear()
+    const item = (uid: string) => ({ uid, exerciseId: 'curl-incline', targets: structuredClone(DEFAULT_TARGETS), restSec: 90 })
+    await db.routines.bulkPut([
+      { id: 'r1', name: 'A', order: 0, items: [item('a'), item('b')] },
+      { id: 'r2', name: 'B', order: 1, items: [item('c')] },
+    ])
+    const target = { sets: 3, repMin: 5, repMax: 8, rir: 1, technique: 'myoreps' as const }
+    expect(await applyModeTargetToRoutines('low', target)).toBe(3)
+    const all = (await db.routines.toArray()).flatMap((r) => r.items)
+    for (const it of all) {
+      expect(it.targets.low).toEqual(target)
+      expect(it.targets.high).toEqual(DEFAULT_TARGETS.high)
+    }
   })
 })

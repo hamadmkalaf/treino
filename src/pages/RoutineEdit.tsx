@@ -2,47 +2,12 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ExercisePicker, MuscleTags, Substitutes } from '../components/exercise'
+import { TargetEditor, targetText } from '../components/target'
 import { Btn, Card, Chip, cx, Empty, Page, SectionTitle, Sheet, Stepper } from '../components/ui'
-import { GROUPS, SUBPART_BY_ID, TECHNIQUE_LABEL } from '../data/muscles'
-import { db, DEFAULT_TARGETS, uid } from '../db/db'
-import { activeBlockOf, useBlocks, useExercises } from '../db/hooks'
-import type { Mode, ModeTarget, Routine, RoutineItem, Technique } from '../types'
-
-const targetText = (t: ModeTarget) =>
-  `${t.sets} × ${t.repMin}–${t.repMax}${t.rir !== undefined ? ` · RIR ${t.rir}` : ''}${t.technique !== 'normal' ? ` · ${TECHNIQUE_LABEL[t.technique]}` : ''}`
-
-function TargetEditor({ value, onChange }: { value: ModeTarget; onChange: (t: ModeTarget) => void }) {
-  return (
-    <div className="space-y-2">
-      <Stepper label="Séries" value={value.sets} min={1} max={12} onChange={(sets) => onChange({ ...value, sets })} />
-      <Stepper
-        label="Reps mínimas"
-        value={value.repMin}
-        min={1}
-        max={50}
-        onChange={(repMin) => onChange({ ...value, repMin, repMax: Math.max(repMin, value.repMax) })}
-      />
-      <Stepper
-        label="Reps máximas"
-        value={value.repMax}
-        min={1}
-        max={50}
-        onChange={(repMax) => onChange({ ...value, repMax, repMin: Math.min(repMax, value.repMin) })}
-      />
-      <Stepper label="RIR alvo" value={value.rir ?? 0} min={0} max={5} onChange={(rir) => onChange({ ...value, rir })} />
-      <div>
-        <div className="mb-1 text-sm text-mut">Técnica padrão</div>
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(TECHNIQUE_LABEL) as Technique[]).map((t) => (
-            <Chip key={t} active={value.technique === t} onClick={() => onChange({ ...value, technique: t })}>
-              {TECHNIQUE_LABEL[t]}
-            </Chip>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
+import { GROUPS, SUBPART_BY_ID } from '../data/muscles'
+import { db, uid } from '../db/db'
+import { activeBlockOf, useBlocks, useExercises, useModeDefaults } from '../db/hooks'
+import type { Mode, Routine, RoutineItem } from '../types'
 
 export default function RoutineEdit() {
   const { id } = useParams()
@@ -50,6 +15,7 @@ export default function RoutineEdit() {
   const routine = useLiveQuery(() => db.routines.get(id!), [id])
   const { byId } = useExercises()
   const block = activeBlockOf(useBlocks())
+  const [modeDefaults] = useModeDefaults()
   const [mode, setMode] = useState<Mode>(block?.mode ?? 'low')
   const [picking, setPicking] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
@@ -188,7 +154,7 @@ export default function RoutineEdit() {
         onPick={(ex) => {
           setItems([
             ...routine.items,
-            { uid: uid(), exerciseId: ex.id, targets: structuredClone(DEFAULT_TARGETS), restSec: 120 },
+            { uid: uid(), exerciseId: ex.id, targets: structuredClone(modeDefaults), restSec: 120 },
           ])
           setPicking(false)
         }}

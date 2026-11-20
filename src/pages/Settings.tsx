@@ -1,13 +1,129 @@
 import { useRef, useState } from 'react'
 import { ExercisePicker } from '../components/exercise'
-import { Btn, Card, Chip, dateFmt, Page, SectionTitle, Stepper } from '../components/ui'
-import { EQUIPMENT } from '../data/muscles'
-import { db, DEFAULT_TARGETS, setSetting, TABLES, uid } from '../db/db'
-import { useActiveGym, useExercises, useSetting } from '../db/hooks'
+import { TargetEditor, targetText } from '../components/target'
+import { Btn, Card, Chip, cx, dateFmt, Page, SectionTitle, Stepper } from '../components/ui'
+import { EQUIPMENT, GROUPS, MODE_LABEL } from '../data/muscles'
+import { applyModeTargetToRoutines } from '../db/actions'
+import { db, DEFAULT_TARGETS, getModeDefaults, setSetting, TABLES, uid } from '../db/db'
+import { useActiveGym, useExercises, useModeDefaults, useSetting } from '../db/hooks'
 import { loadReference } from '../db/reference'
 import { download, exportBackup, importBackup } from '../lib/backup'
 import { buildRoutines, buildSessions, matchExercise, parseFitbod, validateRoutineFile, type FitbodRow } from '../lib/fitbodImport'
-import type { Exercise } from '../types'
+import { DEFAULT_GROUP_TARGET, groupTarget, type GroupTargets } from '../lib/volume'
+import type { Exercise, Mode } from '../types'
+
+function ModeChips({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {(['low', 'high'] as Mode[]).map((m) => (
+        <Btn key={m} small kind={mode === m ? 'primary' : 'soft'} onClick={() => onChange(m)}>
+          {MODE_LABEL[m]}
+        </Btn>
+      ))}
+    </div>
+  )
+}
+
+/** alvo padrão de cada exercício em cada modo (séries, reps, RIR, técnica) */
+function ModeDefaults() {
+  const [defaults, setDefault] = useModeDefaults()
+  const [mode, setMode] = useState<Mode>('low')
+  const [msg, setMsg] = useState('')
+  const t = defaults[mode]
+  return (
+    <>
+      <SectionTitle>Configuração low / high volume</SectionTitle>
+      <p className="text-xs text-mut">
+        Alvo por exercício usado ao adicionar exercícios a uma rotina e ao importar rotinas. Rotinas já montadas não mudam, a menos que você aplique abaixo.
+      </p>
+      <ModeChips mode={mode} onChange={(m) => (setMode(m), setMsg(''))} />
+      <Card>
+        <TargetEditor value={t} onChange={(v) => (setDefault(mode, v), setMsg(''))} />
+      </Card>
+      <div className="grid grid-cols-2 gap-2">
+        <Btn kind="soft" small onClick={() => (setDefault(mode, { ...DEFAULT_TARGETS[mode] }), setMsg(''))}>
+          Restaurar padrão
+        </Btn>
+        <Btn
+          kind="soft"
+          small
+          onClick={async () => {
+            if (!confirm(`Substituir o alvo ${MODE_LABEL[mode]} de TODOS os exercícios de todas as rotinas por ${targetText(t)}? Ajustes individuais desse modo serão perdidos.`)) return
+            const n = await applyModeTargetToRoutines(mode, t)
+            setMsg(`${n} exercícios atualizados (${MODE_LABEL[mode]}).`)
+          }}
+        >
+          Aplicar às rotinas
+        </Btn>
+      </div>
+      {msg && <p className="text-sm">{msg}</p>}
+    </>
+  )
+}
+
+function MiniStep({ label, value, min, max, onChange }: { label: string; value: number; min: number; max: number; onChange: (n: number) => void }) {
+  return (
+    <div className="flex items-center">
+      <button aria-label={`Diminuir ${label}`} className="h-9 w-8 rounded-lg bg-card2 text-lg disabled:opacity-30" disabled={value <= min} onClick={() => onChange(value - 1)}>
+        −
+      </button>
+      <span className="num w-7 text-center text-sm font-semibold">{value}</span>
+      <button aria-label={`Aumentar ${label}`} className="h-9 w-8 rounded-lg bg-card2 text-lg disabled:opacity-30" disabled={value >= max} onClick={() => onChange(value + 1)}>
+        +
+      </button>
+    </div>
+  )
+}
+
+/** faixa de séries semanais por grupo muscular, separada por modo */
+function GroupTargetsEditor() {
+  const [targets, setTargets] = useSetting<GroupTargets>('groupTargets', {})
+  const [mode, setMode] = useState<Mode>('low')
+  const custom = targets[mode] ?? {}
+  const set = (groupId: string, min: number, max: number) => setTargets({ ...targets, [mode]: { ...custom, [groupId]: { min, max } } })
+  const def = DEFAULT_GROUP_TARGET[mode]
+  return (
+    <>
+      <SectionTitle>Alvo semanal de séries por grupo</SectionTitle>
+      <p className="text-xs text-mut">
+        Usado em Análises › Volume semanal. Cada série conta 1 para o grupo do músculo primário e 0,5 para grupos só secundários. A semana usa os alvos do modo
+        predominante nos treinos dela.
+      </p>
+      <ModeChips mode={mode} onChange={setMode} />
+      <Card className="space-y-1 !py-2">
+        <div className="flex justify-end gap-3 pr-1 text-[11px] text-mut">
+          <span className="w-23 text-center">mín.</span>
+          <span className="w-23 text-center">máx.</span>
+        </div>
+        {GROUPS.map((g) => {
+          const r = groupTarget(targets, mode, g.id)
+          return (
+            <div key={g.id} className="flex items-center gap-2">
+              <span className={cx('min-w-0 flex-1 truncate text-sm', !custom[g.id] && 'text-mut')}>{g.pt}</span>
+              <MiniStep label={`mínimo ${g.pt}`} value={r.min} min={0} max={r.max} onChange={(n) => set(g.id, n, r.max)} />
+              <MiniStep label={`máximo ${g.pt}`} value={r.max} min={Math.max(1, r.min)} max={40} onChange={(n) => set(g.id, r.min, n)} />
+            </div>
+          )
+        })}
+      </Card>
+      <p className="text-xs text-mut">
+        Grupos em cinza usam o padrão do {MODE_LABEL[mode]}: {def.min}–{def.max} séries.
+      </p>
+      {Object.keys(custom).length > 0 && (
+        <Btn
+          kind="soft"
+          small
+          className="w-full"
+          onClick={() => {
+            if (confirm(`Voltar todos os grupos ao padrão do ${MODE_LABEL[mode]} (${def.min}–${def.max})?`)) setTargets({ ...targets, [mode]: {} })
+          }}
+        >
+          Restaurar padrão ({MODE_LABEL[mode]})
+        </Btn>
+      )}
+    </>
+  )
+}
 
 function Gyms() {
   const { gyms, active } = useActiveGym()
@@ -239,10 +355,11 @@ function RoutineImport() {
           }
         }
       let added = 0
+      const defaults = await getModeDefaults()
       await db.transaction('rw', db.routines, db.exercises, async () => {
         const existing = await db.routines.toArray()
         const names = new Set(existing.map((r) => r.name.toLowerCase()))
-        const fresh = buildRoutines(data, mapping, uid, existing.length, DEFAULT_TARGETS).filter((r) => !names.has(r.name.toLowerCase()))
+        const fresh = buildRoutines(data, mapping, uid, existing.length, defaults).filter((r) => !names.has(r.name.toLowerCase()))
         const used = new Set(fresh.flatMap((r) => r.items.map((i) => i.exerciseId)))
         await db.exercises.bulkPut(created.filter((c) => used.has(c.id)))
         await db.routines.bulkPut(fresh)
@@ -419,10 +536,12 @@ export default function Settings() {
           </div>
         </div>
         <Stepper label="Descanso padrão (s)" value={rest} min={0} max={600} step={15} onChange={setRest} />
-        <Stepper label="Volume semanal mínimo (séries)" value={volMin} min={0} max={volMax} onChange={setVolMin} />
-        <Stepper label="Volume semanal máximo (séries)" value={volMax} min={volMin} max={40} onChange={setVolMax} />
+        <Stepper label="Faixa por subparte — mín. (séries)" value={volMin} min={0} max={volMax} onChange={setVolMin} />
+        <Stepper label="Faixa por subparte — máx. (séries)" value={volMax} min={volMin} max={40} onChange={setVolMax} />
       </Card>
 
+      <ModeDefaults />
+      <GroupTargetsEditor />
       <Gyms />
       <ReferenceLoad />
       <FitbodImport />

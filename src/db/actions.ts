@@ -1,4 +1,4 @@
-import type { Block, Exercise, Mode, Routine, RoutineItem, Session, SessionExercise, SetEntry } from '../types'
+import type { Block, Exercise, Mode, ModeTarget, Routine, RoutineItem, Session, SessionExercise, SetEntry } from '../types'
 import { suggest } from '../lib/progression'
 import { db, getSetting, setSetting, uid } from './db'
 
@@ -119,4 +119,17 @@ export async function startBlock(name: string, mode: Mode) {
     for (const b of await db.blocks.toArray()) if (!b.end) await db.blocks.update(b.id, { end: now })
     await db.blocks.put({ id: uid(), name, mode, start: now })
   })
+}
+
+/** sobrescreve o alvo de um modo em todos os exercícios de todas as rotinas; retorna quantos itens mudaram */
+export async function applyModeTargetToRoutines(mode: Mode, target: ModeTarget): Promise<number> {
+  let n = 0
+  await db.transaction('rw', db.routines, async () => {
+    for (const r of await db.routines.toArray()) {
+      if (!r.items.length) continue
+      n += r.items.length
+      await db.routines.update(r.id, { items: r.items.map((it) => ({ ...it, targets: { ...it.targets, [mode]: { ...target } } })) })
+    }
+  })
+  return n
 }
