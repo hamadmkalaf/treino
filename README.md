@@ -25,4 +25,11 @@ Depois de publicar, abra o link no celular e use "Adicionar à tela inicial" par
 - `src/pages/` — telas
 - `src/sw.js` — service worker (pré-cache); a lista de arquivos é injetada por um plugin em `vite.config.ts`
 
+## Low / high volume e alvos semanais
+
+Em Ajustes:
+
+- **Configuração low / high volume** — alvo padrão por exercício em cada modo (séries, faixa de reps, RIR, técnica). Vale para exercícios adicionados a rotinas e rotinas importadas; o botão "Aplicar às rotinas" sobrescreve esse modo em todas as rotinas existentes.
+- **Alvo semanal de séries por grupo** — faixa mín.–máx. por grupo muscular, separada por modo. Em Análises › Volume semanal, cada série conta 1 para o grupo do músculo primário e 0,5 para grupos só secundários; a semana usa os alvos do modo predominante nos treinos dela (pode trocar na tela).
+
 As atribuições de subparte muscular e de perfil de tensão são estimativas e podem ser editadas por exercício no app.

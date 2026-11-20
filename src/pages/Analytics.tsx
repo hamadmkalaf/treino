@@ -3,10 +3,22 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { ExerciseChart } from '../components/charts'
 import { ExercisePicker } from '../components/exercise'
 import { Btn, Card, Chip, cx, durationMin, Empty, ModeBadge, Page, SectionTitle } from '../components/ui'
-import { GROUPS, SUBPARTS } from '../data/muscles'
-import { useBlocks, useExercises, useSessions, useSetting } from '../db/hooks'
-import { byWeek, dayKey, exerciseSeries, subpartSets, weekStart, workingSets, type ExercisePoint } from '../lib/volume'
-import type { Session } from '../types'
+import { GROUPS, MODE_LABEL, SUBPARTS } from '../data/muscles'
+import { activeBlockOf, useBlocks, useExercises, useSessions, useSetting } from '../db/hooks'
+import {
+  byWeek,
+  dayKey,
+  exerciseSeries,
+  groupSets,
+  groupTarget,
+  subpartSets,
+  weekMode,
+  weekStart,
+  workingSets,
+  type ExercisePoint,
+  type GroupTargets,
+} from '../lib/volume'
+import type { Mode, Session } from '../types'
 
 const fmtSets = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ','))
 const addDays = (key: string, n: number) => {
@@ -16,33 +28,47 @@ const addDays = (key: string, n: number) => {
 }
 const shortDay = (key: string) => new Date(`${key}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 
-/** faixa de séries semanais considerada adequada por subparte (ajustável em Ajustes) */
+/** séries semanais por grupo (alvo por grupo e modo) e por subparte (faixa global) — ajustáveis em Ajustes */
 function Volume({ sessions }: { sessions: Session[] }) {
   const { byId } = useExercises()
+  const blocks = useBlocks()
   const [week, setWeek] = useState(() => weekStart(new Date()))
   const [open, setOpen] = useState<string>('')
+  const [modeOverride, setModeOverride] = useState<Mode | null>(null)
   const [min] = useSetting('volMin', 4)
   const [max] = useSetting('volMax', 12)
+  const [groupTargets] = useSetting<GroupTargets>('groupTargets', {})
+  const [defaultMode] = useSetting<Mode>('defaultMode', 'high')
   const weeks = useMemo(() => byWeek(sessions), [sessions])
-  const sets = useMemo(() => subpartSets(weeks[week] ?? [], byId), [weeks, week, byId])
+  const list = weeks[week] ?? []
+  const sets = useMemo(() => subpartSets(list, byId), [list, byId])
+  const gSets = useMemo(() => groupSets(list, byId), [list, byId])
   const current = week === weekStart(new Date())
-  const scale = Math.max(max * 1.25, ...Object.values(sets))
+  const autoMode = weekMode(list) ?? (current ? activeBlockOf(blocks)?.mode : undefined) ?? defaultMode
+  const mode = modeOverride ?? autoMode
+  const go = (key: string) => {
+    setWeek(key)
+    setModeOverride(null)
+  }
 
-  const bar = (value: number) => (
-    <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-card2">
-      <div className="absolute inset-y-0 bg-fg/10" style={{ left: `${(min / scale) * 100}%`, width: `${((max - min) / scale) * 100}%` }} />
-      <div
-        className={cx('absolute inset-y-0 left-0 rounded-full', value < min ? 'bg-low' : value > max ? 'bg-high' : 'bg-acc')}
-        style={{ width: `${Math.min(100, (value / scale) * 100)}%` }}
-      />
-    </div>
-  )
-  const low = SUBPARTS.filter((s) => (sets[s.id] ?? 0) < min)
+  const bar = (value: number, lo: number, hi: number) => {
+    const scale = Math.max(hi * 1.25, value, 1)
+    return (
+      <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-card2">
+        <div className="absolute inset-y-0 bg-fg/10" style={{ left: `${(lo / scale) * 100}%`, width: `${((hi - lo) / scale) * 100}%` }} />
+        <div
+          className={cx('absolute inset-y-0 left-0 rounded-full', value < lo ? 'bg-low' : value > hi ? 'bg-high' : 'bg-acc')}
+          style={{ width: `${Math.min(100, (value / scale) * 100)}%` }}
+        />
+      </div>
+    )
+  }
+  const below = GROUPS.filter((g) => (gSets[g.id] ?? 0) < groupTarget(groupTargets, mode, g.id).min)
 
   return (
     <>
       <Card className="flex items-center justify-between !py-2">
-        <button aria-label="Semana anterior" className="h-10 w-10 rounded-full bg-card2" onClick={() => setWeek(addDays(week, -7))}>
+        <button aria-label="Semana anterior" className="h-10 w-10 rounded-full bg-card2" onClick={() => go(addDays(week, -7))}>
           ‹
         </button>
         <div className="text-center">
@@ -50,35 +76,52 @@ function Volume({ sessions }: { sessions: Session[] }) {
             {shortDay(week)} – {shortDay(addDays(week, 6))}
           </div>
           <div className="text-xs text-mut">
-            {(weeks[week] ?? []).length} treinos{current ? ' · semana atual' : ''}
+            {list.length} treinos{current ? ' · semana atual' : ''}
           </div>
         </div>
-        <button aria-label="Próxima semana" className="h-10 w-10 rounded-full bg-card2 disabled:opacity-30" disabled={current} onClick={() => setWeek(addDays(week, 7))}>
+        <button aria-label="Próxima semana" className="h-10 w-10 rounded-full bg-card2 disabled:opacity-30" disabled={current} onClick={() => go(addDays(week, 7))}>
           ›
         </button>
       </Card>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-mut">Alvos:</span>
+        {(['low', 'high'] as Mode[]).map((m) => (
+          <Chip key={m} active={mode === m} onClick={() => setModeOverride(m === autoMode ? null : m)}>
+            {MODE_LABEL[m]}
+            {m === autoMode ? ' · auto' : ''}
+          </Chip>
+        ))}
+      </div>
       <p className="text-xs text-mut">
-        Séries na semana por subparte: alvo primário conta 1, secundário 0,5. Faixa sombreada = {min}–{max} séries.{' '}
-        <span className="text-low">Azul</span> abaixo, <span className="text-acc">verde</span> dentro, <span className="text-high">laranja</span> acima.
+        Grupo: cada série conta 1 se o grupo for primário no exercício, 0,5 se só secundário; faixa sombreada = alvo do grupo. Subpartes (toque no grupo): primário 1,
+        secundário 0,5, faixa {min}–{max}. <span className="text-low">Azul</span> abaixo, <span className="text-acc">verde</span> dentro,{' '}
+        <span className="text-high">laranja</span> acima.
       </p>
       {GROUPS.map((g) => {
         const parts = SUBPARTS.filter((s) => s.groupId === g.id)
-        const best = Math.max(...parts.map((s) => sets[s.id] ?? 0))
+        const t = groupTarget(groupTargets, mode, g.id)
+        const v = gSets[g.id] ?? 0
         const isOpen = open === g.id
         return (
           <Card key={g.id} className="!py-3" onClick={() => setOpen(isOpen ? '' : g.id)}>
             <div className="flex items-center gap-3">
-              <span className="w-32 shrink-0 truncate text-sm font-medium">{g.pt}</span>
-              {bar(best)}
-              <span className="num w-9 shrink-0 text-right text-sm">{fmtSets(best)}</span>
+              <span className="w-26 shrink-0 truncate text-sm font-medium">{g.pt}</span>
+              {bar(v, t.min, t.max)}
+              <span className="num w-21 shrink-0 whitespace-nowrap text-right text-sm">
+                {fmtSets(v)}
+                <span className="text-xs text-mut">
+                  {' '}
+                  / {t.min}–{t.max}
+                </span>
+              </span>
             </div>
             {isOpen && (
               <div className="mt-3 space-y-2 border-t border-line pt-3">
                 {parts.map((s) => (
                   <div key={s.id} className="flex items-center gap-3">
-                    <span className="w-32 shrink-0 text-xs text-mut">{s.pt}</span>
-                    {bar(sets[s.id] ?? 0)}
-                    <span className="num w-9 shrink-0 text-right text-xs">{fmtSets(sets[s.id] ?? 0)}</span>
+                    <span className="w-26 shrink-0 text-xs text-mut">{s.pt}</span>
+                    {bar(sets[s.id] ?? 0, min, max)}
+                    <span className="num w-21 shrink-0 text-right text-xs">{fmtSets(sets[s.id] ?? 0)}</span>
                   </div>
                 ))}
               </div>
@@ -86,10 +129,12 @@ function Volume({ sessions }: { sessions: Session[] }) {
           </Card>
         )
       })}
-      {(weeks[week] ?? []).length > 0 && low.length > 0 && (
+      {list.length > 0 && below.length > 0 && (
         <Card>
-          <div className="text-sm font-semibold">Abaixo de {min} séries nesta semana</div>
-          <div className="mt-1 text-sm text-mut">{low.map((s) => s.pt).join(' · ')}</div>
+          <div className="text-sm font-semibold">Abaixo do alvo nesta semana</div>
+          <div className="mt-1 text-sm text-mut">
+            {below.map((g) => `${g.pt} (${fmtSets(gSets[g.id] ?? 0)}/${groupTarget(groupTargets, mode, g.id).min})`).join(' · ')}
+          </div>
         </Card>
       )}
     </>

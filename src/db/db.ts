@@ -68,6 +68,13 @@ export const DEFAULT_TARGETS: Record<Mode, ModeTarget> = {
   high: { sets: 4, repMin: 8, repMax: 12, rir: 2, technique: 'normal' },
 }
 
+/** padrões de cada modo definidos pelo usuário em Ajustes, completados com DEFAULT_TARGETS */
+export const mergeModeDefaults = (saved: Partial<Record<Mode, Partial<ModeTarget>>> | undefined): Record<Mode, ModeTarget> => ({
+  low: { ...DEFAULT_TARGETS.low, ...saved?.low },
+  high: { ...DEFAULT_TARGETS.high, ...saved?.high },
+})
+export const getModeDefaults = async () => mergeModeDefaults(await getSetting('modeDefaults', {}))
+
 /** cria o programa inicial (A, B, C, Upper, Lower) e um perfil de academia com tudo disponível */
 export async function ensureSeed() {
   if (await getSetting('seeded', false)) return

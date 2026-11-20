@@ -1,8 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useMemo } from 'react'
 import { SEED_EXERCISES } from '../data/exercises'
-import type { Block, Exercise, GymProfile, Routine, Session } from '../types'
-import { db, setSetting } from './db'
+import type { Block, Exercise, GymProfile, Mode, ModeTarget, Routine, Session } from '../types'
+import { db, mergeModeDefaults, setSetting } from './db'
 
 const SEED_IDS = new Set(SEED_EXERCISES.map((e) => e.id))
 export const isSeedId = (id: string) => SEED_IDS.has(id)
@@ -22,6 +22,13 @@ export function useExercises() {
 export function useSetting<T>(key: string, fallback: T): [T, (v: T) => void] {
   const value = useLiveQuery(async () => (await db.settings.get(key))?.value as T | undefined, [key])
   return [value === undefined ? fallback : value, (v: T) => void setSetting(key, v)]
+}
+
+/** alvos padrão de low e high volume (usados ao adicionar exercícios a rotinas e ao importar) */
+export function useModeDefaults(): [Record<Mode, ModeTarget>, (mode: Mode, t: ModeTarget) => void] {
+  const [saved, setSaved] = useSetting<Partial<Record<Mode, ModeTarget>>>('modeDefaults', {})
+  const merged = useMemo(() => mergeModeDefaults(saved), [saved])
+  return [merged, (mode, t) => setSaved({ ...merged, [mode]: t })]
 }
 
 export function useRoutines(): Routine[] {
